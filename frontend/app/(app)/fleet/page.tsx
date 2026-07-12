@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Search, Filter, Info } from "lucide-react";
+import { Plus, Search, Filter, Info, FolderOpen, Trash2, ExternalLink } from "lucide-react";
 import {
   Button,
   Field,
@@ -19,7 +19,7 @@ import {
   type Tone,
 } from "@/components/ui";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
-import { useVehicles, useCreateVehicle } from "@/lib/api/hooks";
+import { useVehicles, useCreateVehicle, useVehicleDocuments, useAddVehicleDocument, useDeleteVehicleDocument } from "@/lib/api/hooks";
 import type { VehicleStatus } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 
@@ -59,6 +59,7 @@ export default function FleetPage() {
   const [odometerVal, setOdometerVal] = useState("");
   const [costVal, setCostVal] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [docsModalId, setDocsModalId] = useState<number | null>(null);
 
   const resetForm = () => {
     setRegNo("");
@@ -202,6 +203,7 @@ export default function FleetPage() {
                     <Th align="right">Odometer</Th>
                     <Th align="right">Acq. Cost</Th>
                     <Th>Status</Th>
+                    <Th align="right">Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,6 +230,16 @@ export default function FleetPage() {
                         <StatusPill tone={STATUS_TONE[v.status] ?? "neutral"}>
                           {v.status}
                         </StatusPill>
+                      </Td>
+                      <Td align="right">
+                        <Button 
+                          variant="outline" 
+                          className="px-2 py-1 text-xs"
+                          onClick={() => setDocsModalId(v.id)}
+                        >
+                          <FolderOpen className="size-3" />
+                          Docs
+                        </Button>
                       </Td>
                     </Tr>
                   ))}
@@ -290,6 +302,100 @@ export default function FleetPage() {
           </div>
         </div>
       )}
+
+      {/* Documents Modal */}
+      {docsModalId !== null && (
+        <VehicleDocumentsModal 
+          vehicleId={docsModalId} 
+          onClose={() => setDocsModalId(null)} 
+          regNo={vehicles.find(v => v.id === docsModalId)?.registrationNumber || ""} 
+        />
+      )}
     </>
+  );
+}
+
+function VehicleDocumentsModal({ vehicleId, regNo, onClose }: { vehicleId: number; regNo: string; onClose: () => void }) {
+  const { data: docs = [], isLoading } = useVehicleDocuments(vehicleId);
+  const addDoc = useAddVehicleDocument(vehicleId);
+  const deleteDoc = useDeleteVehicleDocument(vehicleId);
+
+  const [docType, setDocType] = useState("Registration");
+  const [docNum, setDocNum] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [docUrl, setDocUrl] = useState("");
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    addDoc.mutate({ documentType: docType, documentNumber: docNum, expiryDate: expiry, documentUrl: docUrl }, {
+      onSuccess: () => {
+        setDocType("Registration");
+        setDocNum("");
+        setExpiry("");
+        setDocUrl("");
+      }
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="glass w-full max-w-2xl p-6 rounded-xl flex flex-col gap-6 shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-line max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-ink">Documents: {regNo}</h2>
+          <Button variant="outline" className="px-3 py-1 text-sm" onClick={onClose}>Close</Button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-bold text-muted uppercase">Existing Documents</h3>
+          {isLoading ? <p className="text-sm text-muted">Loading...</p> : docs.length === 0 ? <p className="text-sm text-muted">No documents found.</p> : (
+            <div className="flex flex-col gap-2">
+              {docs.map(doc => (
+                <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-4 border border-line">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-ink">{doc.documentType} <span className="text-muted font-normal ml-1">#{doc.documentNumber}</span></span>
+                    <span className="text-xs text-muted">Expires: {doc.expiryDate}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {doc.documentUrl && (
+                      <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-accent hover:underline">
+                        <ExternalLink className="size-3" /> View
+                      </a>
+                    )}
+                    <button type="button" onClick={() => deleteDoc.mutate(doc.id)} className="text-danger hover:text-danger/80">
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="h-px w-full bg-line" />
+
+        <form onSubmit={handleAdd} className="flex flex-col gap-4">
+          <h3 className="text-sm font-bold text-muted uppercase">Add New Document</h3>
+          <div className="flex gap-4">
+            <Field label="Type" className="flex-1">
+              <Select options={["Registration", "Insurance", "Permit", "Emission", "Other"]} value={docType} onChange={e => setDocType(e.target.value)} />
+            </Field>
+            <Field label="Doc Number" className="flex-1">
+              <Input required placeholder="DOC-12345" value={docNum} onChange={e => setDocNum(e.target.value)} />
+            </Field>
+          </div>
+          <div className="flex gap-4">
+            <Field label="Expiry Date" className="flex-1">
+              <Input required type="date" value={expiry} onChange={e => setExpiry(e.target.value)} />
+            </Field>
+            <Field label="File URL (Optional)" className="flex-1">
+              <Input type="url" placeholder="https://drive.google.com/..." value={docUrl} onChange={e => setDocUrl(e.target.value)} />
+            </Field>
+          </div>
+          <Button type="submit" className="w-full justify-center py-3 text-sm mt-2" disabled={addDoc.isPending}>
+            {addDoc.isPending ? "Adding..." : "Add Document"}
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }

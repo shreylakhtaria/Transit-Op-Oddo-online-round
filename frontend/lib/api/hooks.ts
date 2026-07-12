@@ -17,10 +17,13 @@ import type {
   Trip,
   Vehicle,
   VehicleCostRow,
+  VehicleDocument,
+  CreateVehicleDocumentBody,
 } from "./types";
 
 export const keys = {
   vehicles: ["vehicles"] as const,
+  vehicleDocuments: (id: number) => ["vehicles", id, "documents"] as const,
   drivers: ["drivers"] as const,
   trips: ["trips"] as const,
   maintenance: ["maintenance"] as const,
@@ -89,11 +92,17 @@ export function useUpdateUserRole() {
   });
 }
 
-export const useDashboard = () =>
-  useQuery({
-    queryKey: keys.dashboard,
-    queryFn: () => api.get<DashboardData>("/analytics/dashboard"),
+export const useDashboard = (filters?: { type?: string; status?: string }) => {
+  const params = new URLSearchParams();
+  if (filters?.type && filters.type !== "All") params.append("type", filters.type);
+  if (filters?.status && filters.status !== "All") params.append("status", filters.status);
+  const queryStr = params.toString();
+  
+  return useQuery({
+    queryKey: [...keys.dashboard, filters],
+    queryFn: () => api.get<DashboardData>(`/analytics/dashboard${queryStr ? `?${queryStr}` : ''}`),
   });
+};
 
 export const useMonthlyRevenue = () =>
   useQuery({
@@ -110,11 +119,37 @@ export const useTopCostliest = (limit = 5) =>
 export function useCreateVehicle() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: Partial<Vehicle>) => api.post<Vehicle>("/vehicles", body),
+    mutationFn: (body: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) =>
+      api.post<Vehicle>("/vehicles", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.vehicles });
-      qc.invalidateQueries({ queryKey: ["analytics"] });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
     },
+  });
+}
+
+export function useVehicleDocuments(vehicleId: number) {
+  return useQuery({
+    queryKey: keys.vehicleDocuments(vehicleId),
+    queryFn: () => api.get<VehicleDocument[]>(`/vehicles/${vehicleId}/documents`),
+    enabled: !!vehicleId,
+  });
+}
+
+export function useAddVehicleDocument(vehicleId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateVehicleDocumentBody) =>
+      api.post<VehicleDocument>(`/vehicles/${vehicleId}/documents`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.vehicleDocuments(vehicleId) }),
+  });
+}
+
+export function useDeleteVehicleDocument(vehicleId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (docId: number) => api.delete(`/vehicles/${vehicleId}/documents/${docId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.vehicleDocuments(vehicleId) }),
   });
 }
 

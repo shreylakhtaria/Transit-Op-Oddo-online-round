@@ -147,3 +147,20 @@ export const login = (email: string, password: string) =>
 /** Step 2 — exchanges tempToken + the 6-digit code for real JWTs. */
 export const verifyOtp = (tempToken: string, code: string) =>
   api.post<VerifyOtpResponse>("/auth/verify-otp", { tempToken, code });
+
+export async function downloadCsv(path: string, filename: string) {
+  const token = tokenStore.access;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -66,16 +67,21 @@ const initialsOf = (name: string) =>
 function FilterChip({
   label,
   options,
+  value,
+  onChange,
 }: {
   label: string;
   options: string[];
+  value: string;
+  onChange: (val: string) => void;
 }) {
   return (
     <label className="glass glow-hover flex items-center gap-2 rounded-lg px-3 py-2 transition">
       <span className="label-eyebrow whitespace-nowrap">{label}</span>
       <span className="relative flex items-center">
         <select
-          defaultValue={options[0]}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           aria-label={label}
           className="cursor-pointer appearance-none bg-transparent pr-5 text-sm font-bold text-ink outline-none"
         >
@@ -261,7 +267,10 @@ function TripRow({ trip }: { trip: Trip }) {
 /* --------------------------------------------------------------- page ---- */
 
 export default function DashboardPage() {
-  const { data, isLoading, error, refetch } = useDashboard();
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  
+  const { data, isLoading, error, refetch } = useDashboard({ type: typeFilter, status: statusFilter });
 
   const kpis = data?.kpis;
   const trips = data?.recentTrips ?? [];
@@ -306,14 +315,17 @@ export default function DashboardPage() {
 
   const filters = (
     <div className="flex flex-wrap items-center gap-3">
-      <FilterChip label="Vehicle Type" options={["All", "Van", "Truck", "Mini"]} />
+      <FilterChip 
+        label="Vehicle Type" 
+        options={["All", "Van", "Truck", "Mini"]} 
+        value={typeFilter}
+        onChange={setTypeFilter}
+      />
       <FilterChip
         label="Status"
         options={["All", "Available", "On Trip", "In Shop", "Retired"]}
-      />
-      <FilterChip
-        label="Region"
-        options={["All Regions", "North", "South", "East", "West"]}
+        value={statusFilter}
+        onChange={setStatusFilter}
       />
     </div>
   );

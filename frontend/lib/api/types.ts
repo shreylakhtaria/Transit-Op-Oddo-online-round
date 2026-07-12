@@ -27,6 +27,24 @@ export type Vehicle = {
   updatedAt: string;
 };
 
+export type VehicleDocument = {
+  id: number;
+  vehicleId: number;
+  documentType: string;
+  documentNumber: string;
+  expiryDate: string;
+  documentUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateVehicleDocumentBody = {
+  documentType: string;
+  documentNumber: string;
+  expiryDate: string;
+  documentUrl?: string | null;
+};
+
 export type Driver = {
   id: number;
   name: string;

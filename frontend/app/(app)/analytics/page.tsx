@@ -22,6 +22,7 @@ import {
   useRoles,
   useTopCostliest,
 } from "@/lib/api/hooks";
+import { downloadCsv } from "@/lib/api/client";
 import type { Role, VehicleCostRow } from "@/lib/api/types";
 import { Button, Panel, PageHeader, Table, Td, Th, Tr } from "@/components/ui";
 import {
@@ -262,12 +263,22 @@ export default function AnalyticsPage() {
                 </ul>
               )}
             </div>
-            <Button
-              className="rounded-lg px-4 py-2 text-sm"
-              icon={<Download className="size-4" strokeWidth={2.5} />}
-            >
-              Export Report
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                className="rounded-lg px-4 py-2 text-sm"
+                icon={<Download className="size-4" strokeWidth={2.5} />}
+                onClick={() => downloadCsv("/analytics/export/csv", "TransitOps-Report.csv")}
+              >
+                Export CSV
+              </Button>
+              <Button
+                className="rounded-lg px-4 py-2 text-sm bg-surface-4 text-ink hover:bg-surface-4/80"
+                icon={<Download className="size-4" strokeWidth={2.5} />}
+                onClick={() => window.print()}
+              >
+                Export PDF
+              </Button>
+            </div>
           </div>
         }
       />
