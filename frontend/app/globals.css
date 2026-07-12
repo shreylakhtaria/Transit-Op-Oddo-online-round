@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/* ── Glacier · Frozen Light ──────────────────────────────────────────────
+   Ethereal depth through layered translucent surfaces.
+   Elevation comes from blur + opacity, never from shadows.
+   Layer 0: solid background · Layer 1: 60% + 16px · Layer 2: 75% + 24px
+   ──────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Layer 0 — the only opaque surface in the system */
+  --color-bg: #0a0e1a;
+
+  /* Glass layers. Alpha is intentional: these must never read as solid. */
+  --color-surface: rgba(15, 21, 36, 0.6);
+  --color-surface-2: rgba(15, 21, 36, 0.6);
+  --color-surface-3: rgba(15, 21, 36, 0.75);
+  --color-surface-4: rgba(125, 211, 252, 0.12);
+
+  /* Luminous borders, not structural ones */
+  --color-line: rgba(125, 211, 252, 0.15);
+  --color-line-soft: rgba(125, 211, 252, 0.08);
+
+  /* Primary — ice blue */
+  --color-accent: #7dd3fc;
+  --color-accent-ink: #06121f;
+  --color-accent-dim: rgba(125, 211, 252, 0.12);
+  --color-accent-faint: rgba(125, 211, 252, 0.06);
+
+  /* Tertiary — soft lavender */
+  --color-tertiary: #c8a0f0;
+  --color-tertiary-dim: rgba(200, 160, 240, 0.12);
+
+  --color-ink: #e6edfb;
+  --color-muted: #93a7c6;
+  --color-placeholder: #5a6b8a;
+
+  --color-success: #6ee7b7;
+  --color-success-dim: rgba(110, 231, 183, 0.12);
+  --color-danger: #fb7185;
+  --color-danger-dim: rgba(251, 113, 133, 0.12);
+  --color-warn: #fcd34d;
+  --color-warn-dim: rgba(252, 211, 77, 0.12);
+  --color-neutral-dim: rgba(200, 160, 240, 0.12);
+
+  --color-emergency: rgba(251, 113, 133, 0.16);
+  --color-emergency-ink: #ffdbe1;
+
+  /* Inter throughout; the "mono" slot keeps tabular figures so numeric
+     columns still align without a second typeface. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+/* Something for the glass to refract — without this, blur has no substrate. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      60rem 40rem at 12% -8%,
+      rgba(125, 211, 252, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 36rem at 92% 8%,
+      rgba(200, 160, 240, 0.08),
+      transparent 60%
+    ),
+    radial-gradient(
+      44rem 34rem at 70% 96%,
+      rgba(125, 211, 252, 0.06),
+      transparent 60%
+    );
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ── Glass ──────────────────────────────────────────────────────────────
+   Layer 1: floating panels, cards, nav chrome. */
+.glass {
+  background: var(--color-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 0 30px rgba(125, 211, 252, 0.05);
+}
+
+/* Layer 2: elevated glass — table headers, popovers, anything above a panel. */
+.glass-elevated {
+  background: var(--color-surface-3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Interactive glow — reserved for hover/focus states only. */
+.glow-focus:focus-within,
+.glow-hover:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.15);
+}
+
+/* Uppercase micro-label used for eyebrows, table headers and stat captions */
+.label-eyebrow {
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.label-field {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.55px;
+  color: var(--color-muted);
+}
+
+/* The soft aurora that sits behind each page's content column */
+.atmosphere::before,
+.atmosphere::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+}
+.atmosphere::before {
+  width: 512px;
+  height: 410px;
+  left: -128px;
+  top: -102px;
+  background: rgba(125, 211, 252, 0.1);
+  filter: blur(60px);
+}
+.atmosphere::after {
+  width: 384px;
+  height: 307px;
+  right: -64px;
+  top: 614px;
+  background: rgba(200, 160, 240, 0.1);
+  filter: blur(50px);
+}
