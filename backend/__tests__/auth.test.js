@@ -1,12 +1,81 @@
 import { describe, test, expect, beforeEach } from '@jest/globals';
+import request from 'supertest';
 import {
-  setupTestDb, Role, User, Otp, RefreshToken,
+  setupTestDb, createTestApp, authAs, Role, User, Otp, RefreshToken,
 } from './setup.js';
 import { AuthService } from '../src/modules/auth/service.js';
 
 describe('Auth Module', () => {
   beforeEach(async () => {
     await setupTestDb();
+  });
+
+  // POST /auth/register accepts a client-supplied `roleName` (including 'Fleet Manager').
+  // Leaving it anonymous would let anybody mint themselves an admin account, so the route
+  // is now behind requireAuth + requireRole(['Fleet Manager']).
+  //
+  // NOTE: the auth router is rate limited to 10 requests / 15 min per IP, so this block
+  // deliberately keeps its HTTP calls to a handful.
+  describe('POST /api/auth/register (privilege escalation guard)', () => {
+    test('should reject an anonymous registration with 401', async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          name: 'Mallory',
+          email: 'mallory@example.com',
+          password: 'password123',
+          roleName: 'Fleet Manager',
+        });
+
+      expect(res.status).toBe(401);
+      // and crucially: no account was created
+      const created = await User.findOne({ where: { email: 'mallory@example.com' } });
+      expect(created).toBeNull();
+    });
+
+    test('should reject a registration by a non Fleet Manager with 403', async () => {
+      const app = createTestApp();
+      const { token } = await authAs('Driver');
+
+      const res = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'Escalated',
+          email: 'escalated@example.com',
+          password: 'password123',
+          roleName: 'Fleet Manager',
+        });
+
+      expect(res.status).toBe(403);
+      const created = await User.findOne({ where: { email: 'escalated@example.com' } });
+      expect(created).toBeNull();
+    });
+
+    test('should allow a Fleet Manager to register a new user', async () => {
+      const app = createTestApp();
+      const { token } = await authAs('Fleet Manager');
+
+      const res = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'New Analyst',
+          email: 'analyst@example.com',
+          password: 'password123',
+          roleName: 'Financial Analyst',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.email).toBe('analyst@example.com');
+      expect(res.body.role.name).toBe('Financial Analyst');
+      expect(res.body.password).toBeUndefined();
+
+      const created = await User.findOne({ where: { email: 'analyst@example.com' } });
+      expect(created).not.toBeNull();
+    });
   });
 
   describe('register', () => {

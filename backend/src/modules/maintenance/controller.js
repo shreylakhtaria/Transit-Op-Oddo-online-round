@@ -1,5 +1,6 @@
 import { MaintenanceService } from './service.js';
 import { createMaintenanceSchema } from './validators.js';
+import { parsePagination } from '../../utils/pagination.js';
 
 export class MaintenanceController {
   static async startMaintenance(req, res, next) {
@@ -28,9 +29,13 @@ export class MaintenanceController {
   static async getAllLogs(req, res, next) {
     try {
       const filters = { status: req.query.status };
-      const logs = await MaintenanceService.getAllLogs(filters);
+      const pagination = parsePagination(req.query);
+      const logs = await MaintenanceService.getAllLogs(filters, pagination);
       return res.status(200).json(logs);
     } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
       next(error);
     }
   }

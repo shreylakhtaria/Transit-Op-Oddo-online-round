@@ -1,5 +1,6 @@
 import { Trip, Vehicle, Driver, FuelLog, Expense, sequelize } from '../../models/index.js';
 import { Op } from 'sequelize';
+import { paginate } from '../../utils/pagination.js';
 
 export class TripService {
   static async createTrip(data) {
@@ -170,17 +171,17 @@ export class TripService {
     }
   }
 
-  static async getAllTrips(filters = {}) {
+  static async getAllTrips(filters = {}, pagination = null) {
     const where = {};
     if (filters.status) where.status = filters.status;
-    return await Trip.findAll({
+    return await paginate(Trip, {
       where,
       include: [
         { model: Vehicle, as: 'vehicle', attributes: ['registrationNumber', 'model', 'type'] },
         { model: Driver, as: 'driver', attributes: ['name', 'licenseNumber'] }
       ],
       order: [['createdAt', 'DESC']]
-    });
+    }, pagination);
   }
 
   static async getTripById(id) {

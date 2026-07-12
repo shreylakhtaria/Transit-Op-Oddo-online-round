@@ -1,5 +1,6 @@
 import { FinanceService } from './service.js';
 import { fuelLogSchema, expenseSchema } from './validators.js';
+import { parsePagination } from '../../utils/pagination.js';
 
 export class FinanceController {
   static async logFuel(req, res, next) {
@@ -43,8 +44,24 @@ export class FinanceController {
         vehicleId: req.query.vehicleId ? parseInt(req.query.vehicleId, 10) : undefined,
         category: req.query.category
       };
-      const expenses = await FinanceService.getAllExpenses(filters);
+      const pagination = parsePagination(req.query);
+      const expenses = await FinanceService.getAllExpenses(filters, pagination);
       return res.status(200).json(expenses);
+    } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      next(error);
+    }
+  }
+
+  static async getFuelLogs(req, res, next) {
+    try {
+      const filters = {
+        vehicleId: req.query.vehicleId ? parseInt(req.query.vehicleId, 10) : undefined
+      };
+      const logs = await FinanceService.getFuelLogs(filters);
+      return res.status(200).json(logs);
     } catch (error) {
       next(error);
     }
