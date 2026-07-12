@@ -3,16 +3,25 @@ import rateLimit from 'express-rate-limit';
 import { AuthController } from './controller.js';
 import { requireAuth } from '../../middlewares/authMiddleware.js';
 import { requireRole } from '../../middlewares/roleMiddleware.js';
+import { env } from '../../config/env.js';
 
 const router = Router();
 
-// Rate limiter for auth endpoints
+// Rate limiter for auth endpoints.
+//
+// Two demo-relevant caveats:
+//  - Behind Vercel's proxy every request can look like it comes from one IP, so this
+//    limit is effectively shared across all users — 10 total sign-ins would lock out
+//    the whole demo for 15 minutes.
+//  - A shared-account demo means many people hammering /login and /verify-otp.
+// So in demo mode (EXPOSE_OTP) the limiter is skipped entirely. A real deployment keeps it.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per `window` (here, per 15 minutes)
+  max: 10, // per window
   message: { error: 'Too many authentication attempts, please try again after 15 minutes' },
-  standardHeaders: true, 
-  legacyHeaders: false, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => env.EXPOSE_OTP,
 });
 
 // Registration mints accounts and accepts a client-supplied `roleName` (including
