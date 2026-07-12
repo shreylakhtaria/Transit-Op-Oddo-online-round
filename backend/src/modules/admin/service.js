@@ -5,6 +5,8 @@ import { User, Role, sequelize } from '../../models/index.js';
 const USER_ATTRIBUTES = ['id', 'name', 'email', 'createdAt'];
 const ROLE_ATTRIBUTES = ['id', 'name'];
 
+const FLEET_MANAGER = 'Fleet Manager';
+
 const toUserResponse = (user) => ({
   id: user.id,
   name: user.name,
@@ -66,12 +68,28 @@ export class AdminService {
   }
 
   static async updateUserRole(id, { roleName }) {
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(id, {
+      include: [{ model: Role, as: 'role', attributes: ROLE_ATTRIBUTES }]
+    });
     if (!user) throw notFound('User not found');
 
     const role = await Role.findOne({ where: { name: roleName } });
     if (!role) {
       throw new Error('Invalid role specified');
+    }
+
+    // Creating users and reassigning roles are both Fleet-Manager-only. So demoting the
+    // last Fleet Manager would strand the system with nobody able to promote anyone back —
+    // an unrecoverable lockout. Refuse it.
+    const isDemotion =
+      user.role?.name === FLEET_MANAGER && roleName !== FLEET_MANAGER;
+    if (isDemotion) {
+      const remaining = await User.count({ where: { roleId: user.roleId } });
+      if (remaining <= 1) {
+        throw new Error(
+          'Cannot change the role of the last Fleet Manager: no one would be left who can manage users'
+        );
+      }
     }
 
     await user.update({ roleId: role.id });

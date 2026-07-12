@@ -203,5 +203,29 @@ describe('Admin Module (Users & Roles)', () => {
       expect(roles.length).toBe(4);
       roles.forEach((role) => expect(role.userCount).toBe(0));
     });
+
+    // Only a Fleet Manager can create users or reassign roles, so demoting the last one
+    // would leave nobody able to promote anyone back — an unrecoverable lockout.
+    test('should refuse to demote the last Fleet Manager', async () => {
+      const manager = await createTestUser('Fleet Manager');
+
+      await expect(
+        AdminService.updateUserRole(manager.id, { roleName: 'Driver' })
+      ).rejects.toThrow(/last Fleet Manager/);
+
+      const unchanged = await AdminService.getUserById(manager.id);
+      expect(unchanged.role.name).toBe('Fleet Manager');
+    });
+
+    test('should allow demoting a Fleet Manager while another one remains', async () => {
+      const first = await createTestUser('Fleet Manager');
+      await createTestUser('Fleet Manager');
+
+      const updated = await AdminService.updateUserRole(first.id, {
+        roleName: 'Driver',
+      });
+
+      expect(updated.role.name).toBe('Driver');
+    });
   });
 });
