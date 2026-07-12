@@ -109,7 +109,7 @@ export class AnalyticsService {
   static async generateCSVExport() {
     const stats = await this.getDashboardStats();
     const rows = [
-      ['Registration Number', 'Model', 'Type', 'Odometer (km)', 'Fuel Cost ($)', 'Maintenance Cost ($)', 'Total Operational Cost ($)', 'Revenue ($)', 'ROI (%)', 'Fuel Efficiency (km/L)']
+      ['Registration Number', 'Model', 'Type', 'Odometer (km)', 'Fuel Cost (INR)', 'Maintenance Cost (INR)', 'Total Operational Cost (INR)', 'Revenue (INR)', 'ROI (%)', 'Fuel Efficiency (km/L)']
     ];
 
     stats.chartData.forEach(item => {

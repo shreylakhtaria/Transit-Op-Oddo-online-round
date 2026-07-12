@@ -255,7 +255,7 @@ describe('Trips Module', () => {
 
       const { FuelLog } = await import('../src/models/index.js');
       const fuelLog = await FuelLog.findOne({ where: { tripId: trip.id } });
-      expect(fuelLog.cost).toBe(40 * 1.5);
+      expect(fuelLog.cost).toBe(40 * 100.0);
     });
   });
 

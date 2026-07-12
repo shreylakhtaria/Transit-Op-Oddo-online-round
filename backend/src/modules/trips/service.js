@@ -113,7 +113,7 @@ export class TripService {
       }, { transaction });
 
       // Automatically log fuel consumed
-      const calculatedFuelCost = fuelCost || fuelConsumed * 1.5; // Default $1.5/L if not provided
+      const calculatedFuelCost = fuelCost || fuelConsumed * 100.0; // Default ₹100/L if not provided
       const today = new Date().toISOString().split('T')[0];
 
       await FuelLog.create({
