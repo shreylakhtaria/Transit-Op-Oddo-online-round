@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, tokenStore } from "./api/client";
+import { ApiError, api, tokenStore } from "./api/client";
 import type { AuthUser } from "./api/types";
 
 type AuthState = {
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Validating the token IS a query — let React Query own the async state
   // rather than syncing it into local state from an effect.
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, error } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => api.get<{ user: AuthUser }>("/auth/me"),
     enabled: hasToken === true,
@@ -37,8 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60_000,
   });
 
+  // Only a rejected token means "signed out". A 500 or a dropped connection is
+  // transient — bouncing the user to /login over it would lose their place and
+  // their work. Keep them in the console; each page surfaces its own error state.
+  const rejected = isError && error instanceof ApiError && error.status === 401;
+
   const isAuthenticated =
-    hasToken === null ? null : hasToken === false || isError ? false : isPending ? null : true;
+    hasToken === null
+      ? null
+      : hasToken === false || rejected
+        ? false
+        : isPending
+          ? null
+          : true;
 
   const refreshUser = useCallback(async () => {
     setHasToken(Boolean(tokenStore.access));
@@ -46,6 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [qc]);
 
   const logout = useCallback(() => {
+    // Revoke server-side so the 7-day refresh token can't be replayed. Best-effort:
+    // a failure here must not strand the user in a session they asked to leave.
+    const refreshToken = tokenStore.refresh;
+    if (refreshToken) {
+      void api.post("/auth/logout", { refreshToken }).catch(() => {});
+    }
     tokenStore.clear();
     qc.clear();
     setHasToken(false);

@@ -35,6 +35,14 @@ export class ApiError extends Error {
   }
 }
 
+/** The session is genuinely over — the refresh token itself was rejected. */
+export class SessionExpiredError extends ApiError {
+  constructor() {
+    super(401, "Session expired. Please sign in again.");
+    this.name = "SessionExpiredError";
+  }
+}
+
 async function readError(res: Response) {
   try {
     const body = await res.json();
@@ -45,24 +53,50 @@ async function readError(res: Response) {
 }
 
 /**
- * Access tokens live 15 minutes, so a long-lived tab will hit 401 mid-session.
- * On the first 401 we spend the refresh token and replay the request once;
- * a second failure means the session is genuinely dead.
+ * Access tokens live 15 minutes, so a long-lived tab reliably hits 401 mid-session.
+ *
+ * Two things this has to get right:
+ *
+ * 1. **Single-flight.** A page mounts several queries at once, so an expired token
+ *    produces N simultaneous 401s. Without deduping, each spawns its own refresh.
+ *    That works today only because the backend does not rotate refresh tokens — the
+ *    day it starts to (standard hardening), every refresh but the first would be
+ *    rejected and users would be logged out at random. Collapse them into one call.
+ *
+ * 2. **Only a rejected refresh token ends the session.** A 500 or a backend restart
+ *    is transient; destroying the session over it means a blip logs the user out.
+ *    Clear tokens on 401/403 from /auth/refresh, and only then.
  */
-async function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function doRefresh(): Promise<string | null> {
   const refreshToken = tokenStore.refresh;
   if (!refreshToken) return null;
 
   const res = await fetch(`${BASE_URL}/auth/refresh`, {
     method: "POST",
+    cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),
   });
-  if (!res.ok) return null;
+
+  // The refresh token itself was refused — nothing left to salvage.
+  if (res.status === 401 || res.status === 403) return null;
+
+  // Anything else (5xx, gateway hiccup) is transient. Surface it, but keep the
+  // session so the user can retry instead of being bounced to the login screen.
+  if (!res.ok) throw new ApiError(res.status, await readError(res));
 
   const { accessToken } = (await res.json()) as { accessToken: string };
   tokenStore.set(accessToken);
   return accessToken;
+}
+
+function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 async function request<T>(
@@ -73,6 +107,9 @@ async function request<T>(
   const token = tokenStore.access;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
+    // Responses vary by Authorization but the API doesn't send `Vary: Authorization`,
+    // so letting the browser cache them risks serving one session's data to another.
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -84,7 +121,7 @@ async function request<T>(
     const fresh = await refreshAccessToken();
     if (fresh) return request<T>(path, init, false);
     tokenStore.clear();
-    throw new ApiError(401, "Session expired. Please sign in again.");
+    throw new SessionExpiredError();
   }
 
   if (!res.ok) throw new ApiError(res.status, await readError(res));
