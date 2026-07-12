@@ -76,12 +76,20 @@ export class AuthService {
       expiresAt
     });
 
-    // Send email via Nodemailer
-    await sendEmail({
-      to: user.email,
-      subject: 'TransitOps Login Verification Code',
-      text: `Hello ${user.name},\n\nYour One-Time Password (OTP) for TransitOps login is: ${code}\n\nThis code is valid for 5 minutes.\n\nIf you did not request this login, please ignore this email.\n\nBest regards,\nTransitOps Team`
-    });
+    // Send email via Nodemailer. In demo mode the code is also returned in the response,
+    // so a delivery failure (e.g. an unowned demo domain that bounces) must not block the
+    // login — swallow it there. Outside demo mode, email is the only way to get the code,
+    // so a failure still propagates.
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'TransitOps Login Verification Code',
+        text: `Hello ${user.name},\n\nYour One-Time Password (OTP) for TransitOps login is: ${code}\n\nThis code is valid for 5 minutes.\n\nIf you did not request this login, please ignore this email.\n\nBest regards,\nTransitOps Team`
+      });
+    } catch (error) {
+      if (!env.EXPOSE_OTP) throw error;
+      console.warn(`⚠️ OTP email to ${user.email} failed; returning code inline (demo mode):`, error.message);
+    }
 
     // Generate short-lived tempToken valid for 5 minutes
     const tempToken = jwt.sign(
@@ -92,7 +100,9 @@ export class AuthService {
 
     return {
       message: 'OTP sent successfully to your email',
-      tempToken
+      tempToken,
+      // Demo mode only — lets a shared account be signed into without inbox access.
+      ...(env.EXPOSE_OTP ? { devCode: code } : {})
     };
   }
 

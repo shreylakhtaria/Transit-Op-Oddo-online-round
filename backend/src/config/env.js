@@ -35,6 +35,16 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional().default('no-reply@transitops.com'),
+
+  // Demo mode. When true, POST /auth/login also returns the OTP in the response so a
+  // shared login (e.g. a judge using manager@transitops.com) can be completed without
+  // access to that inbox, and OTP email failures no longer block login. NEVER enable
+  // this on a deployment holding real user data — it defeats the second factor.
+  EXPOSE_OTP: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 const parsed = envSchema.safeParse(process.env);
