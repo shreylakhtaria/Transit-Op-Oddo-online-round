@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TransitOps Frontend - Smart Transport Operations Platform
 
-## Getting Started
+A premium, glassmorphism-inspired Next.js frontend built for the TransitOps fleet management platform. It features real-time data visualization, full role-based access control (RBAC), and responsive dashboards designed to provide deep operational insights at a glance.
 
-First, run the development server:
+This project was built as a hackathon submission.
 
+---
+
+## 🎨 Design Philosophy
+
+TransitOps was built with a highly premium, modern aesthetic targeting mission-control level visibility.
+- **Dark Mode & Glassmorphism:** Semi-transparent panels with luminous borders create a state-of-the-art visual hierarchy.
+- **Dynamic Feedback:** Subtle micro-animations and hover effects (glow borders, color shifts) provide immediate tactile feedback.
+- **Action-Oriented Typography:** Clean monospace metrics combined with highly legible sans-serif fonts ensure critical data (status, reg numbers, ROI) pops out instantly.
+
+---
+
+## 🛠️ Technical Stack
+
+- **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) (using native CSS custom properties for rich thematic tokens)
+- **State Management & Fetching:** [TanStack React Query (v5)](https://tanstack.com/query/latest)
+- **Icons:** [Lucide React](https://lucide.dev/)
+- **Charts:** [Recharts](https://recharts.org/)
+- **Language:** TypeScript
+
+---
+
+## 🚀 Core Features
+
+### 1. Unified Mission Control Dashboard
+- Real-time KPIs for Active Vehicles, Vehicles in Maintenance, and Active/Pending Trips.
+- Dynamic filtering by **Vehicle Type** and **Status**, which updates all charts and recent trip tables via URL query parameters.
+- Fleet utilization visualizer showcasing Available, On Trip, and In Shop assets.
+
+### 2. Fleet & Driver Registries
+- Clean tabular tracking of vehicles and drivers.
+- **Vehicle Document Management:** Attached slide-over/modal for tracking registration, insurance, and emission documents securely.
+- Role-gated capabilities (e.g., only Fleet Managers can add new vehicles).
+
+### 3. Trip Dispatching Engine
+- Full trip lifecycle execution (`Draft ➔ Dispatched ➔ Completed ➔ Cancelled`).
+- Validates payload weights and calculates actual ROI natively by tracking fuel efficiency automatically upon trip completion.
+
+### 4. Financial & Analytics Views
+- **Monthly Revenue:** Interactive bar charts tracking revenue trends over time.
+- **Costliest Vehicles:** Ranked visual breakdown of the most expensive assets based on accumulated maintenance and fuel logs.
+- **PDF & CSV Export:** Direct single-click export generation for operational reports and audits.
+
+### 5. Secure Authentication
+- Full multi-step OTP-based authentication.
+- Short-lived Access Tokens handled automatically by a robust generic API client.
+- Soft-refreshing session handling without disrupting the user flow.
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Prerequisites
+- Node.js (v18+)
+- Running TransitOps Backend Server (typically on port 8000)
+
+### 2. Install Dependencies
+Navigate to the `frontend/` folder and run:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Configure Environment Variables
+Create a `.env.local` file in the root of the `frontend/` folder:
+```env
+# The URL pointing to your local running TransitOps backend API
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Run the Development Server
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000) with your browser to launch the application.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🔐 Role-Based Access Control (RBAC)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The frontend UI dynamically adapts based on the signed-in user's role (enforced tightly by the backend):
+- **Fleet Manager:** Full create/update/delete access across vehicles, dispatching, and settings.
+- **Driver:** Can access and manage assigned trips and logging.
+- **Safety Officer:** Manages driver compliance, tracks licenses, and can trigger system-wide automated email warnings for expiring licenses.
+- **Financial Analyst:** Read-only access to operations but full analytical tracking of fleet utilization and maintenance reporting.
