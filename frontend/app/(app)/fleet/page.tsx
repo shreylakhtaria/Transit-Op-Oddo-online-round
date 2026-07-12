@@ -19,7 +19,7 @@ import {
   type Tone,
 } from "@/components/ui";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
-import { useVehicles } from "@/lib/api/hooks";
+import { useVehicles, useCreateVehicle } from "@/lib/api/hooks";
 import type { VehicleStatus } from "@/lib/api/types";
 
 const STATUS_TONE: Record<VehicleStatus, Tone> = {
@@ -40,10 +40,53 @@ const currency = new Intl.NumberFormat("en-US", {
 
 export default function FleetPage() {
   const { data, isLoading, error, refetch } = useVehicles();
+  const createVehicle = useCreateVehicle();
 
   const [type, setType] = useState(ALL_TYPES);
   const [status, setStatus] = useState(ALL_STATUS);
   const [query, setQuery] = useState("");
+
+  // Add Vehicle Form States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [regNo, setRegNo] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [odometerVal, setOdometerVal] = useState("");
+  const [costVal, setCostVal] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const resetForm = () => {
+    setRegNo("");
+    setModelName("");
+    setVehicleType("");
+    setCapacity("");
+    setOdometerVal("");
+    setCostVal("");
+    setErrorMsg("");
+  };
+
+  const handleAddVehicle = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    createVehicle.mutate({
+      registrationNumber: regNo,
+      model: modelName,
+      type: vehicleType,
+      maxLoadCapacity: Number(capacity),
+      odometer: Number(odometerVal),
+      acquisitionCost: Number(costVal),
+      status: "Available"
+    }, {
+      onSuccess: () => {
+        resetForm();
+        setIsModalOpen(false);
+      },
+      onError: (err) => {
+        setErrorMsg(err instanceof Error ? err.message : "Failed to create vehicle");
+      }
+    });
+  };
 
   const vehicles = useMemo(() => data ?? [], [data]);
 
@@ -76,7 +119,10 @@ export default function FleetPage() {
         title="Vehicle Registry"
         subtitle="Manage and audit the centralized transportation asset database."
         action={
-          <Button icon={<Plus className="size-3.5" strokeWidth={3} />}>
+          <Button
+            icon={<Plus className="size-3.5" strokeWidth={3} />}
+            onClick={() => setIsModalOpen(true)}
+          >
             Add Vehicle
           </Button>
         }
@@ -97,7 +143,7 @@ export default function FleetPage() {
               ALL_STATUS,
               "Available",
               "On Trip",
-              "In Maintenance",
+              "In Shop",
               "Retired",
             ]}
             value={status}
@@ -196,6 +242,48 @@ export default function FleetPage() {
         No. must be unique <span className="text-line">•</span> Retired/In Shop
         vehicles are hidden from Trip Dispatcher view.
       </RuleNote>
+
+      {/* Add Vehicle Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-md p-6 rounded-xl flex flex-col gap-6 shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-line">
+            <h2 className="text-xl font-bold text-ink">Add New Vehicle</h2>
+            <form onSubmit={handleAddVehicle} className="flex flex-col gap-4">
+              <Field label="Registration Number">
+                <Input required placeholder="MH-12-HE-05" value={regNo} onChange={e => setRegNo(e.target.value)} />
+              </Field>
+              <Field label="Model Name">
+                <Input required placeholder="Tata Ace" value={modelName} onChange={e => setModelName(e.target.value)} />
+              </Field>
+              <Field label="Vehicle Type">
+                <Input required placeholder="Truck" value={vehicleType} onChange={e => setVehicleType(e.target.value)} />
+              </Field>
+              <div className="flex gap-4">
+                <Field label="Capacity (kg)" className="flex-1">
+                  <Input required type="number" min="1" placeholder="5000" value={capacity} onChange={e => setCapacity(e.target.value)} />
+                </Field>
+                <Field label="Odometer (km)" className="flex-1">
+                  <Input required type="number" min="0" placeholder="1000" value={odometerVal} onChange={e => setOdometerVal(e.target.value)} />
+                </Field>
+              </div>
+              <Field label="Acquisition Cost (USD)">
+                <Input required type="number" min="1" placeholder="25000" value={costVal} onChange={e => setCostVal(e.target.value)} />
+              </Field>
+
+              {errorMsg && <p className="text-sm text-danger">{errorMsg}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 justify-center py-3 text-sm" disabled={createVehicle.isPending}>
+                  {createVehicle.isPending ? "Adding..." : "Add Vehicle"}
+                </Button>
+                <Button variant="outline" className="flex-1 justify-center py-3 text-sm" onClick={() => { resetForm(); setIsModalOpen(false); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

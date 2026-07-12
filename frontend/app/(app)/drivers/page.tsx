@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import {
   Button,
+  Field,
+  Input,
   Panel,
   StatusPill,
   Table,
@@ -19,7 +21,7 @@ import {
   type Tone,
 } from "@/components/ui";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
-import { useDrivers } from "@/lib/api/hooks";
+import { useDrivers, useCreateDriver } from "@/lib/api/hooks";
 import type { Driver, DriverStatus } from "@/lib/api/types";
 
 const STATUS_TONE: Record<DriverStatus, Tone> = {
@@ -83,7 +85,50 @@ function Checkbox({
 
 export default function DriversPage() {
   const { data, isLoading, error, refetch } = useDrivers();
+  const createDriver = useCreateDriver();
   const [selected, setSelected] = useState<number[]>([]);
+
+  // Add Driver Form States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [driverName, setDriverName] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
+  const [licenseCat, setLicenseCat] = useState("");
+  const [licenseExpiry, setLicenseExpiry] = useState("");
+  const [phone, setPhone] = useState("");
+  const [safetyScoreVal, setSafetyScoreVal] = useState("100");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const resetForm = () => {
+    setDriverName("");
+    setLicenseNo("");
+    setLicenseCat("");
+    setLicenseExpiry("");
+    setPhone("");
+    setSafetyScoreVal("100");
+    setErrorMsg("");
+  };
+
+  const handleAddDriver = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    createDriver.mutate({
+      name: driverName,
+      licenseNumber: licenseNo,
+      licenseCategory: licenseCat,
+      licenseExpiryDate: licenseExpiry,
+      contactNumber: phone,
+      safetyScore: Number(safetyScoreVal),
+      status: "Available"
+    }, {
+      onSuccess: () => {
+        resetForm();
+        setIsModalOpen(false);
+      },
+      onError: (err) => {
+        setErrorMsg(err instanceof Error ? err.message : "Failed to create driver");
+      }
+    });
+  };
 
   const drivers: Driver[] = useMemo(() => data ?? [], [data]);
 
@@ -130,6 +175,7 @@ export default function DriversPage() {
           <Button
             className="px-5 py-2 text-[13px]"
             icon={<Plus className="size-3" strokeWidth={3} />}
+            onClick={() => setIsModalOpen(true)}
           >
             Add Driver
           </Button>
@@ -307,6 +353,48 @@ export default function DriversPage() {
             </>
           )}
         </Panel>
+      )}
+
+      {/* Add Driver Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-md p-6 rounded-xl flex flex-col gap-6 shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-line">
+            <h2 className="text-xl font-bold text-ink">Add New Driver</h2>
+            <form onSubmit={handleAddDriver} className="flex flex-col gap-4">
+              <Field label="Driver Name">
+                <Input required placeholder="John Doe" value={driverName} onChange={e => setDriverName(e.target.value)} />
+              </Field>
+              <Field label="License Number">
+                <Input required placeholder="DL-123456" value={licenseNo} onChange={e => setLicenseNo(e.target.value)} />
+              </Field>
+              <Field label="License Category">
+                <Input required placeholder="Heavy Transport" value={licenseCat} onChange={e => setLicenseCat(e.target.value)} />
+              </Field>
+              <Field label="License Expiry Date">
+                <Input required type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} className="font-mono" />
+              </Field>
+              <div className="flex gap-4">
+                <Field label="Contact Number" className="flex-1">
+                  <Input required placeholder="+919876543210" value={phone} onChange={e => setPhone(e.target.value)} />
+                </Field>
+                <Field label="Safety Score (0-100)" className="flex-1">
+                  <Input required type="number" min="0" max="100" placeholder="100" value={safetyScoreVal} onChange={e => setSafetyScoreVal(e.target.value)} />
+                </Field>
+              </div>
+
+              {errorMsg && <p className="text-sm text-danger">{errorMsg}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 justify-center py-3 text-sm" disabled={createDriver.isPending}>
+                  {createDriver.isPending ? "Adding..." : "Add Driver"}
+                </Button>
+                <Button variant="outline" className="flex-1 justify-center py-3 text-sm" onClick={() => { resetForm(); setIsModalOpen(false); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );
