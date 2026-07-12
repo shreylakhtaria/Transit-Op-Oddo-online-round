@@ -25,7 +25,7 @@ import type { VehicleStatus } from "@/lib/api/types";
 const STATUS_TONE: Record<VehicleStatus, Tone> = {
   Available: "success",
   "On Trip": "warn",
-  "In Maintenance": "danger",
+  "In Shop": "danger",
   Retired: "neutral",
 };
 

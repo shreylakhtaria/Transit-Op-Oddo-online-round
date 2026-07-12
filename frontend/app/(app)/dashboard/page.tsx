@@ -48,8 +48,7 @@ const stat = (n: number) =>
 
 const TRIP_TONE: Record<TripStatus, Tone> = {
   Draft: "neutral",
-  Dispatched: "neutral",
-  "In Progress": "warn",
+  Dispatched: "warn",
   Completed: "success",
   Cancelled: "danger",
 };
@@ -244,7 +243,7 @@ function TripRow({ trip }: { trip: Trip }) {
       <Td>
         <StatusPill tone={TRIP_TONE[trip.status]}>
           <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px]">
-            {trip.status === "In Progress" && (
+            {trip.status === "Dispatched" && (
               <span className="size-1.5 rounded-full bg-accent" />
             )}
             {trip.status}

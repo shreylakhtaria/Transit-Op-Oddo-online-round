@@ -19,7 +19,6 @@ import type { TripStatus } from "@/lib/api/types";
 
 const TRIP_TONE: Record<TripStatus, Tone> = {
   Completed: "success",
-  "In Progress": "warn",
   Dispatched: "warn",
   Cancelled: "danger",
   Draft: "neutral",

@@ -335,7 +335,7 @@ export default function FuelPage() {
                       )}
                     </Td>
                     <Td className="px-3 whitespace-nowrap text-[13px] text-muted">
-                      {e.type}
+                      {e.category}
                     </Td>
                     <Td
                       align="right"

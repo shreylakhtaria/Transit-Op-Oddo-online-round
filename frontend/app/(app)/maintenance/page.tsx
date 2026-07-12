@@ -50,7 +50,7 @@ function LogPill({
   children: ReactNode;
 }) {
   const styles =
-    status === "Open"
+    status === "Active"
       ? "border-accent/20 bg-accent-dim text-accent"
       : "border-success/25 bg-success-dim text-success";
   return (
@@ -144,8 +144,12 @@ export default function MaintenancePage() {
   const createLog = useCreateMaintenance();
 
   const [vehicleId, setVehicleId] = useState("");
-  const [serviceType, setServiceType] = useState(SERVICE_TYPES[0]);
+  const [description, setDescription] = useState(SERVICE_TYPES[0]);
   const [cost, setCost] = useState("");
+  // POST /maintenance requires startDate in YYYY-MM-DD; default to today.
+  const [startDate, setStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
 
   // The <Select> primitive keys options by their own text, so carry the id in the label.
   const PLACEHOLDER = "Select a vehicle";
@@ -175,9 +179,9 @@ export default function MaintenancePage() {
     e.preventDefault();
     const id = Number(vehicleId);
     const amount = Number(cost);
-    if (!id || Number.isNaN(amount)) return;
+    if (!id || Number.isNaN(amount) || !description || !startDate) return;
     createLog.mutate(
-      { vehicleId: id, serviceType, cost: amount },
+      { vehicleId: id, description, cost: amount, startDate },
       { onSuccess: () => setCost("") },
     );
   }
@@ -216,12 +220,22 @@ export default function MaintenancePage() {
               <Field label="Service Type">
                 <Select
                   options={SERVICE_TYPES}
-                  value={serviceType}
-                  onChange={(e) => setServiceType(e.target.value)}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </Field>
 
               <div className="flex gap-4">
+                <Field label="Start Date" className="flex-1">
+                  <Input
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="font-mono"
+                  />
+                </Field>
+
                 <Field label="Cost (USD)" className="flex-1">
                   <Input
                     type="number"
@@ -256,8 +270,9 @@ export default function MaintenancePage() {
                   className="flex-1 justify-center py-3 text-sm"
                   onClick={() => {
                     setVehicleId("");
-                    setServiceType(SERVICE_TYPES[0]);
+                    setDescription(SERVICE_TYPES[0]);
                     setCost("");
+                    setStartDate(new Date().toISOString().slice(0, 10));
                     createLog.reset();
                   }}
                 >
@@ -361,7 +376,7 @@ export default function MaintenancePage() {
                           </div>
                         </Td>
                         <Td className="px-2 whitespace-nowrap text-sm text-muted">
-                          {log.serviceType}
+                          {log.description}
                         </Td>
                         <Td
                           align="right"

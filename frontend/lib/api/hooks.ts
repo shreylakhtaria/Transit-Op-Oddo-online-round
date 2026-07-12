@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
+  CreateMaintenanceBody,
   DashboardData,
   Driver,
   Expense,
@@ -84,7 +85,7 @@ export function useCreateDriver() {
 export function useCreateMaintenance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: Partial<MaintenanceLog>) =>
+    mutationFn: (body: CreateMaintenanceBody) =>
       api.post<MaintenanceLog>("/maintenance", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.maintenance });

@@ -5,15 +5,14 @@
  *   - money/percent fields arrive as numbers already, not strings.
  */
 
-export type VehicleStatus = "Available" | "On Trip" | "In Maintenance" | "Retired";
+// Enums below are lifted verbatim from the Sequelize models — do not "tidy" them
+// to match the Figma copy. The design says "In Maintenance"/"In Progress"/"Open";
+// the database says "In Shop"/(nothing)/"Active". The database wins.
+export type VehicleStatus = "Available" | "On Trip" | "In Shop" | "Retired";
 export type DriverStatus = "Available" | "On Trip" | "Off Duty" | "Suspended";
-export type TripStatus =
-  | "Draft"
-  | "Dispatched"
-  | "In Progress"
-  | "Completed"
-  | "Cancelled";
-export type MaintenanceStatus = "Open" | "Closed";
+export type TripStatus = "Draft" | "Dispatched" | "Completed" | "Cancelled";
+export type MaintenanceStatus = "Active" | "Closed";
+export type ExpenseCategory = "Fuel" | "Maintenance" | "Toll" | "Other";
 
 export type Vehicle = {
   id: number;
@@ -51,11 +50,15 @@ export type Trip = {
   status: TripStatus;
   vehicleId: number | null;
   driverId: number | null;
+  cargoWeight?: number;
+  plannedDistance?: number;
+  actualDistance?: number | null;
+  fuelConsumed?: number | null;
+  revenue?: number;
+  dispatchDate?: string | null;
+  completionDate?: string | null;
   vehicle?: Vehicle;
   driver?: Driver;
-  scheduledAt?: string | null;
-  completedAt?: string | null;
-  revenue?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -63,24 +66,47 @@ export type Trip = {
 export type MaintenanceLog = {
   id: number;
   vehicleId: number;
-  serviceType: string;
+  /** The work performed. The API calls this `description`, not `serviceType`. */
+  description: string;
   cost: number;
+  /** YYYY-MM-DD. Required by POST /maintenance. */
+  startDate: string;
+  endDate?: string | null;
   status: MaintenanceStatus;
-  serviceDate?: string;
   vehicle?: Vehicle;
   createdAt: string;
   updatedAt: string;
+};
+
+/** POST /maintenance rejects anything missing description or startDate. */
+export type CreateMaintenanceBody = {
+  vehicleId: number;
+  description: string;
+  cost: number;
+  startDate: string;
 };
 
 export type Expense = {
   id: number;
   vehicleId: number;
   tripId?: number | null;
-  type: string;
+  description: string;
   amount: number;
+  category: ExpenseCategory;
+  /** YYYY-MM-DD */
+  date: string;
   vehicle?: Vehicle;
   createdAt: string;
   updatedAt: string;
+};
+
+export type FuelLog = {
+  id: number;
+  vehicleId: number;
+  tripId?: number | null;
+  liters: number;
+  cost: number;
+  date: string;
 };
 
 /** GET /settings — a flat string key/value map, not a typed object. */

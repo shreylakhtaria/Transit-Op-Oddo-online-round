@@ -50,7 +50,21 @@ code is printed to the backend console** — keep that terminal visible when sig
 - **No pagination and no `{data: ...}` envelope.** Every list endpoint returns a bare
   top-level array. The table footers show real counts rather than fake page numbers.
 - Access tokens expire in 15 minutes; `lib/api/client.ts` transparently spends the
-  refresh token and replays the request once on a 401.
+  refresh token and replays the request once on a 401. Refresh tokens are not rotated.
+
+### Field names and enums come from the models, NOT the Figma copy
+
+The design and the database disagree, and the database wins. These bit us once already:
+
+| Thing | Design says | API actually uses |
+| --- | --- | --- |
+| Vehicle status | "In Maintenance" | **`In Shop`** |
+| Trip status | "In Progress" | *(no such value)* — `Draft`/`Dispatched`/`Completed`/`Cancelled` |
+| Maintenance status | "Open" / "In Shop" | **`Active`** / `Closed` |
+| Maintenance work | `serviceType` | **`description`**, plus a required **`startDate`** (YYYY-MM-DD) |
+| Expense | `type` | **`description`**, `amount`, `category` (`Fuel`/`Maintenance`/`Toll`/`Other`), `date` |
+
+`POST /maintenance` rejects any body missing `description` or `startDate`.
 
 ## Wired to live data
 
