@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/async";
 import { useDashboard, useExpenses, useFuelLogs, useVehicles, useCreateFuelLog, useCreateExpense } from "@/lib/api/hooks";
 import { tokenStore } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -110,6 +111,8 @@ function StatTileSkeleton() {
 }
 
 export default function FuelPage() {
+  const { user } = useAuth();
+  const isAllowed = user?.role?.name === "Fleet Manager" || user?.role?.name === "Financial Analyst";
   const {
     data: dashboard,
     isLoading: dashboardLoading,
@@ -276,21 +279,25 @@ export default function FuelPage() {
         subtitle="Real-time expenditure tracking and operational cost analysis."
         action={
           <div className="flex items-center gap-3">
-            <Button
-              icon={<Plus className="size-3.5" strokeWidth={3} />}
-              className="px-5 py-2.5 text-sm"
-              onClick={() => setIsFuelOpen(true)}
-            >
-              Log Fuel
-            </Button>
-            <Button
-              variant="outline"
-              icon={<ReceiptText className="size-4" />}
-              className="px-5 py-2.5 text-sm"
-              onClick={() => setIsExpenseOpen(true)}
-            >
-              Add Expense
-            </Button>
+            {isAllowed && (
+              <>
+                <Button
+                  icon={<Plus className="size-3.5" strokeWidth={3} />}
+                  className="px-5 py-2.5 text-sm"
+                  onClick={() => setIsFuelOpen(true)}
+                >
+                  Log Fuel
+                </Button>
+                <Button
+                  variant="outline"
+                  icon={<ReceiptText className="size-4" />}
+                  className="px-5 py-2.5 text-sm"
+                  onClick={() => setIsExpenseOpen(true)}
+                >
+                  Add Expense
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               icon={<Download className="size-4" />}

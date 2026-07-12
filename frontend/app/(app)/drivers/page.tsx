@@ -23,6 +23,7 @@ import {
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
 import { useDrivers, useCreateDriver } from "@/lib/api/hooks";
 import type { Driver, DriverStatus } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth";
 
 const STATUS_TONE: Record<DriverStatus, Tone> = {
   Available: "success",
@@ -84,9 +85,12 @@ function Checkbox({
 }
 
 export default function DriversPage() {
+  const { user } = useAuth();
   const { data, isLoading, error, refetch } = useDrivers();
   const createDriver = useCreateDriver();
   const [selected, setSelected] = useState<number[]>([]);
+
+  const isAllowed = user?.role?.name === "Fleet Manager" || user?.role?.name === "Safety Officer";
 
   // Add Driver Form States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -172,13 +176,15 @@ export default function DriversPage() {
           >
             Toggle Status
           </Button>
-          <Button
-            className="px-5 py-2 text-[13px]"
-            icon={<Plus className="size-3" strokeWidth={3} />}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add Driver
-          </Button>
+          {isAllowed && (
+            <Button
+              className="px-5 py-2 text-[13px]"
+              icon={<Plus className="size-3" strokeWidth={3} />}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Add Driver
+            </Button>
+          )}
         </div>
       </div>
 

@@ -29,6 +29,7 @@ import {
   useCancelTrip,
 } from "@/lib/api/hooks";
 import type { TripStatus } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth";
 
 const TRIP_TONE: Record<TripStatus, Tone> = {
   Completed: "success",
@@ -38,9 +39,12 @@ const TRIP_TONE: Record<TripStatus, Tone> = {
 };
 
 export default function TripsPage() {
+  const { user } = useAuth();
   const { data, isLoading, error, refetch } = useTrips();
   const { data: vehiclesData } = useVehicles();
   const { data: driversData } = useDrivers();
+
+  const isAllowed = user?.role?.name === "Fleet Manager" || user?.role?.name === "Driver";
 
   const createTrip = useCreateTrip();
   const dispatchTrip = useDispatchTrip();
@@ -144,12 +148,14 @@ export default function TripsPage() {
         title="Trip Dispatcher"
         subtitle="Plan, assign and monitor active transportation jobs."
         action={
-          <Button
-            icon={<Plus className="size-3.5" strokeWidth={3} />}
-            onClick={() => setIsCreateOpen(true)}
-          >
-            Create Trip
-          </Button>
+          isAllowed ? (
+            <Button
+              icon={<Plus className="size-3.5" strokeWidth={3} />}
+              onClick={() => setIsCreateOpen(true)}
+            >
+              Create Trip
+            </Button>
+          ) : undefined
         }
       />
 
@@ -173,7 +179,7 @@ export default function TripsPage() {
                 <Th>Vehicle</Th>
                 <Th>Driver</Th>
                 <Th>Status</Th>
-                <Th align="right">Actions</Th>
+                {isAllowed && <Th align="right">Actions</Th>}
               </tr>
             </thead>
             <tbody>
@@ -202,39 +208,41 @@ export default function TripsPage() {
                       {trip.status}
                     </StatusPill>
                   </Td>
-                  <Td align="right">
-                    <div className="flex justify-end gap-2">
-                      {trip.status === "Draft" && (
-                        <Button
-                          variant="primary"
-                          className="px-3 py-1 text-xs"
-                          onClick={() => dispatchTrip.mutate(trip.id)}
-                          disabled={dispatchTrip.isPending}
-                        >
-                          {dispatchTrip.isPending && dispatchTrip.variables === trip.id ? "..." : "Dispatch"}
-                        </Button>
-                      )}
-                      {trip.status === "Dispatched" && (
-                        <>
+                  {isAllowed && (
+                    <Td align="right">
+                      <div className="flex justify-end gap-2">
+                        {trip.status === "Draft" && (
                           <Button
                             variant="primary"
                             className="px-3 py-1 text-xs"
-                            onClick={() => setActiveCompleteTripId(trip.id)}
+                            onClick={() => dispatchTrip.mutate(trip.id)}
+                            disabled={dispatchTrip.isPending}
                           >
-                            Complete
+                            {dispatchTrip.isPending && dispatchTrip.variables === trip.id ? "..." : "Dispatch"}
                           </Button>
-                          <Button
-                            variant="outline"
-                            className="px-3 py-1 text-xs border-danger/30 text-danger hover:bg-danger/10"
-                            onClick={() => cancelTrip.mutate(trip.id)}
-                            disabled={cancelTrip.isPending}
-                          >
-                            {cancelTrip.isPending && cancelTrip.variables === trip.id ? "..." : "Cancel"}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </Td>
+                        )}
+                        {trip.status === "Dispatched" && (
+                          <>
+                            <Button
+                              variant="primary"
+                              className="px-3 py-1 text-xs"
+                              onClick={() => setActiveCompleteTripId(trip.id)}
+                            >
+                              Complete
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="px-3 py-1 text-xs border-danger/30 text-danger hover:bg-danger/10"
+                              onClick={() => cancelTrip.mutate(trip.id)}
+                              disabled={cancelTrip.isPending}
+                            >
+                              {cancelTrip.isPending && cancelTrip.variables === trip.id ? "..." : "Cancel"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </Td>
+                  )}
                 </Tr>
               ))}
             </tbody>

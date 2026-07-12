@@ -21,6 +21,7 @@ import {
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
 import { useVehicles, useCreateVehicle } from "@/lib/api/hooks";
 import type { VehicleStatus } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth";
 
 const STATUS_TONE: Record<VehicleStatus, Tone> = {
   Available: "success",
@@ -39,8 +40,11 @@ const currency = new Intl.NumberFormat("en-IN", {
 });
 
 export default function FleetPage() {
+  const { user } = useAuth();
   const { data, isLoading, error, refetch } = useVehicles();
   const createVehicle = useCreateVehicle();
+
+  const isManager = user?.role?.name === "Fleet Manager";
 
   const [type, setType] = useState(ALL_TYPES);
   const [status, setStatus] = useState(ALL_STATUS);
@@ -119,12 +123,14 @@ export default function FleetPage() {
         title="Vehicle Registry"
         subtitle="Manage and audit the centralized transportation asset database."
         action={
-          <Button
-            icon={<Plus className="size-3.5" strokeWidth={3} />}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add Vehicle
-          </Button>
+          isManager ? (
+            <Button
+              icon={<Plus className="size-3.5" strokeWidth={3} />}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Add Vehicle
+            </Button>
+          ) : undefined
         }
       />
 

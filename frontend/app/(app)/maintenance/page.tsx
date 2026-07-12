@@ -28,6 +28,7 @@ import {
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
 import { useCreateMaintenance, useMaintenance, useVehicles, useCloseMaintenance } from "@/lib/api/hooks";
 import type { MaintenanceStatus } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth";
 
 const SERVICE_TYPES = [
   "Oil Change",
@@ -134,6 +135,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 }
 
 export default function MaintenancePage() {
+  const { user } = useAuth();
   const {
     data: logs,
     isLoading,
@@ -143,6 +145,8 @@ export default function MaintenancePage() {
   const { data: vehicles } = useVehicles();
   const createLog = useCreateMaintenance();
   const closeLog = useCloseMaintenance();
+
+  const isManager = user?.role?.name === "Fleet Manager";
 
   const [vehicleId, setVehicleId] = useState("");
   const [description, setDescription] = useState(SERVICE_TYPES[0]);
@@ -198,90 +202,100 @@ export default function MaintenancePage() {
       <div className="grid grid-cols-12 gap-4">
         {/* Left column — Log Service Record form */}
         <div className="col-span-12 flex flex-col gap-4 lg:col-span-4">
-          <Panel className="flex flex-col gap-6 p-6">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="size-4.5 text-accent" />
-              <h2 className="text-xl font-semibold leading-7 text-ink">
-                Log Service Record
-              </h2>
-            </div>
+          {isManager ? (
+            <Panel className="flex flex-col gap-6 p-6">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="size-4.5 text-accent" />
+                <h2 className="text-xl font-semibold leading-7 text-ink">
+                  Log Service Record
+                </h2>
+              </div>
 
-            <form className="flex flex-col gap-5" onSubmit={onSubmit}>
-              <Field label="Vehicle">
-                <Select
-                  options={[PLACEHOLDER, ...vehicleLabels.keys()]}
-                  value={selectedLabel}
-                  onChange={(e) =>
-                    setVehicleId(vehicleLabels.get(e.target.value) ?? "")
-                  }
-                  className="font-mono"
-                />
-              </Field>
-
-              <Field label="Service Type">
-                <Select
-                  options={SERVICE_TYPES}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </Field>
-
-              <div className="flex gap-4">
-                <Field label="Start Date" className="flex-1">
-                  <Input
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+              <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+                <Field label="Vehicle">
+                  <Select
+                    options={[PLACEHOLDER, ...vehicleLabels.keys()]}
+                    value={selectedLabel}
+                    onChange={(e) =>
+                      setVehicleId(vehicleLabels.get(e.target.value) ?? "")
+                    }
                     className="font-mono"
                   />
                 </Field>
 
-                <Field label="Cost (INR)" className="flex-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="2500"
-                    value={cost}
-                    onChange={(e) => setCost(e.target.value)}
-                    className="font-mono"
+                <Field label="Service Type">
+                  <Select
+                    options={SERVICE_TYPES}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                   />
                 </Field>
-              </div>
 
-              {createLog.error && (
-                <p className="text-sm text-danger">
-                  {createLog.error instanceof Error
-                    ? createLog.error.message
-                    : "Couldn't save the record."}
-                </p>
-              )}
+                <div className="flex gap-4">
+                  <Field label="Start Date" className="flex-1">
+                    <Input
+                      type="date"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="font-mono"
+                    />
+                  </Field>
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={createLog.isPending || !vehicleId || cost === ""}
-                  className="flex-1 justify-center py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {createLog.isPending ? "Saving…" : "Save"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 justify-center py-3 text-sm"
-                  onClick={() => {
-                    setVehicleId("");
-                    setDescription(SERVICE_TYPES[0]);
-                    setCost("");
-                    setStartDate(new Date().toISOString().slice(0, 10));
-                    createLog.reset();
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
-            </form>
-          </Panel>
+                  <Field label="Cost (INR)" className="flex-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="2500"
+                      value={cost}
+                      onChange={(e) => setCost(e.target.value)}
+                      className="font-mono"
+                    />
+                  </Field>
+                </div>
+
+                {createLog.error && (
+                  <p className="text-sm text-danger">
+                    {createLog.error instanceof Error
+                      ? createLog.error.message
+                      : "Couldn't save the record."}
+                  </p>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="submit"
+                    disabled={createLog.isPending || !vehicleId || cost === ""}
+                    className="flex-1 justify-center py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {createLog.isPending ? "Saving…" : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 justify-center py-3 text-sm"
+                    onClick={() => {
+                      setVehicleId("");
+                      setDescription(SERVICE_TYPES[0]);
+                      setCost("");
+                      setStartDate(new Date().toISOString().slice(0, 10));
+                      createLog.reset();
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </form>
+            </Panel>
+          ) : (
+            <Panel className="flex flex-col gap-4 p-6 justify-center items-center text-center min-h-[250px]">
+              <AlertTriangle className="size-8 text-muted" />
+              <h3 className="text-base font-bold text-ink">Read-Only Access</h3>
+              <p className="text-sm text-muted">
+                Maintenance and service log creation is restricted to Fleet Managers.
+              </p>
+            </Panel>
+          )}
 
           <div className="flex gap-3 rounded-lg border border-danger/25 bg-emergency/60 p-4 backdrop-blur-[16px]">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-emergency-ink/90" />
@@ -350,9 +364,11 @@ export default function MaintenancePage() {
                       Cost
                     </Th>
                     <Th className="px-2 whitespace-nowrap">Status</Th>
-                    <Th align="right" className="px-2 w-24">
-                      Actions
-                    </Th>
+                    {isManager && (
+                      <Th align="right" className="px-2 w-24">
+                        Actions
+                      </Th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -389,18 +405,20 @@ export default function MaintenancePage() {
                         <Td className="px-2">
                           <LogPill status={log.status}>{log.status}</LogPill>
                         </Td>
-                        <Td className="px-2" align="right">
-                          {log.status === "Active" && (
-                            <Button
-                              variant="outline"
-                              className="px-2.5 py-1 text-xs"
-                              onClick={() => closeLog.mutate({ id: log.id })}
-                              disabled={closeLog.isPending}
-                            >
-                              {closeLog.isPending && closeLog.variables?.id === log.id ? "..." : "Close"}
-                            </Button>
-                          )}
-                        </Td>
+                        {isManager && (
+                          <Td className="px-2" align="right">
+                            {log.status === "Active" && (
+                              <Button
+                                variant="outline"
+                                className="px-2.5 py-1 text-xs"
+                                onClick={() => closeLog.mutate({ id: log.id })}
+                                disabled={closeLog.isPending}
+                              >
+                                {closeLog.isPending && closeLog.variables?.id === log.id ? "..." : "Close"}
+                              </Button>
+                            )}
+                          </Td>
+                        )}
                       </Tr>
                     );
                   })}

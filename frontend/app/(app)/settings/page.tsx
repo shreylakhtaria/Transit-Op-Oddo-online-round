@@ -36,6 +36,7 @@ import {
   TableSkeleton,
 } from "@/components/ui/async";
 import { ApiError } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 import {
   useRoles,
   useSettings,
@@ -327,6 +328,8 @@ const CURRENCY = "CURRENCY";
 const DISTANCE_UNIT = "DISTANCE_UNIT";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isManager = user?.role?.name === "Fleet Manager";
   const { data, isLoading, error, refetch } = useSettings();
   const updateSettings = useUpdateSettings();
 
@@ -384,14 +387,16 @@ export default function SettingsPage() {
           title="Settings & Administration"
           subtitle="Configure global operational parameters, define organizational hierarchy, and manage role-based access controls for the Gandhinagar Depot ecosystem."
           action={
-            <Button
-              className="shrink-0 whitespace-nowrap"
-              onClick={commit}
-              disabled={isLoading || !!error || updateSettings.isPending}
-              icon={<Save className="size-3.5 shrink-0" strokeWidth={3} />}
-            >
-              {commitLabel}
-            </Button>
+            isManager ? (
+              <Button
+                className="shrink-0 whitespace-nowrap"
+                onClick={commit}
+                disabled={isLoading || !!error || updateSettings.isPending}
+                icon={<Save className="size-3.5 shrink-0" strokeWidth={3} />}
+              >
+                {commitLabel}
+              </Button>
+            ) : undefined
           }
         />
         <div className="h-px w-full bg-gradient-to-r from-accent/30 to-transparent" />
@@ -427,12 +432,14 @@ export default function SettingsPage() {
                 <Field label="Depot Name">
                   <Input
                     value={depotName}
+                    disabled={!isManager}
                     onChange={(e) => setField(DEPOT_NAME, e.target.value)}
                   />
                 </Field>
                 <Field label="Currency">
                   <Input
                     value={currency}
+                    disabled={!isManager}
                     onChange={(e) => setField(CURRENCY, e.target.value)}
                     icon={<Wallet className="size-4" />}
                   />
@@ -448,8 +455,9 @@ export default function SettingsPage() {
                       <button
                         key={key}
                         type="button"
+                        disabled={!isManager}
                         onClick={() => setField(DISTANCE_UNIT, key)}
-                        className={`flex-1 rounded py-2 text-xs font-bold leading-4 transition-colors ${
+                        className={`flex-1 rounded py-2 text-xs font-bold leading-4 transition-colors disabled:opacity-50 ${
                           distanceUnit === key
                             ? "bg-accent text-accent-ink"
                             : "text-muted hover:text-ink"
