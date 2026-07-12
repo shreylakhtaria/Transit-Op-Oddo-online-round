@@ -1,4 +1,5 @@
 import { FuelLog, Expense, Vehicle, Trip, sequelize } from '../../models/index.js';
+import { paginate } from '../../utils/pagination.js';
 
 export class FinanceService {
   static async logFuel(data) {
@@ -78,14 +79,25 @@ export class FinanceService {
     };
   }
 
-  static async getAllExpenses(filters = {}) {
+  static async getAllExpenses(filters = {}, pagination = null) {
     const where = {};
     if (filters.vehicleId) where.vehicleId = filters.vehicleId;
     if (filters.category) where.category = filters.category;
-    return await Expense.findAll({
+    return await paginate(Expense, {
       where,
       include: [{ model: Vehicle, as: 'vehicle', attributes: ['registrationNumber', 'model'] }],
       order: [['date', 'DESC'], ['createdAt', 'DESC']]
+    }, pagination);
+  }
+
+  static async getFuelLogs(filters = {}) {
+    const where = {};
+    if (filters.vehicleId) where.vehicleId = filters.vehicleId;
+    return await FuelLog.findAll({
+      where,
+      attributes: ['id', 'vehicleId', 'tripId', 'liters', 'cost', 'date'],
+      include: [{ model: Vehicle, as: 'vehicle', attributes: ['id', 'registrationNumber', 'model'] }],
+      order: [['date', 'DESC'], ['id', 'DESC']]
     });
   }
 }
