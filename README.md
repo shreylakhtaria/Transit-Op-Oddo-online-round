@@ -2,7 +2,9 @@
 
 TransitOps is a comprehensive, full-stack platform built for managing fleet operations, trip dispatching, maintenance tracking, financial logging, and data analytics.
 
-This project was built as a hackathon submission.
+This project was built as a Odoo Online Hackathon submission.
+
+🚀 **[Live Website](https://transitops-six.vercel.app/)** | 🎥 **[Demo Video](https://drive.google.com/drive/folders/1we5l0YIUG3RSGEOIAz8n8VD4O7F3K9Qa?usp=sharing)**
 
 ---
 
