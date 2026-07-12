@@ -23,4 +23,9 @@ router.put('/drivers/:id', requireRole(['Fleet Manager', 'Safety Officer']), Fle
 router.delete('/drivers/:id', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.deleteDriver);
 router.post('/drivers/remind-expiry', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.sendLicenseExpiryReminders);
 
+// Vehicle Documents
+router.get('/vehicles/:id/documents', FleetController.getVehicleDocuments);
+router.post('/vehicles/:id/documents', requireRole(['Fleet Manager']), FleetController.addVehicleDocument);
+router.delete('/vehicles/:id/documents/:docId', requireRole(['Fleet Manager']), FleetController.deleteVehicleDocument);
+
 export default router;

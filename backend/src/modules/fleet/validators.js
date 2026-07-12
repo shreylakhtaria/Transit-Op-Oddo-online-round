@@ -28,3 +28,10 @@ export const driverSchema = z.object({
 export const updateDriverStatusSchema = z.object({
   status: z.enum(['Available', 'On Trip', 'Off Duty', 'Suspended'])
 });
+
+export const vehicleDocumentSchema = z.object({
+  documentType: z.string().min(2, 'Document type is required').trim(),
+  documentNumber: z.string().min(2, 'Document number is required').trim(),
+  expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expiry date must be in YYYY-MM-DD format'),
+  documentUrl: z.string().url('Invalid document URL').optional().nullable().or(z.literal(''))
+});

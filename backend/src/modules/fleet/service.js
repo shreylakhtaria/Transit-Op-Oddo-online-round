@@ -1,4 +1,4 @@
-import { Vehicle, Driver, User, Role } from '../../models/index.js';
+import { Vehicle, Driver, User, Role, VehicleDocument } from '../../models/index.js';
 import { Op } from 'sequelize';
 
 export class FleetService {
@@ -137,5 +137,34 @@ export class FleetService {
       message: `Checked for expiring licenses. Sent ${results.length} reminders.`,
       remindersSent: results
     };
+  }
+
+  // --- Vehicle Document Management ---
+
+  static async addVehicleDocument(vehicleId, data) {
+    const vehicle = await Vehicle.findByPk(vehicleId);
+    if (!vehicle) throw new Error('Vehicle not found');
+
+    return await VehicleDocument.create({
+      vehicleId,
+      ...data
+    });
+  }
+
+  static async getVehicleDocuments(vehicleId) {
+    const vehicle = await Vehicle.findByPk(vehicleId);
+    if (!vehicle) throw new Error('Vehicle not found');
+
+    return await VehicleDocument.findAll({
+      where: { vehicleId },
+      order: [['expiryDate', 'ASC']]
+    });
+  }
+
+  static async deleteVehicleDocument(id) {
+    const doc = await VehicleDocument.findByPk(id);
+    if (!doc) throw new Error('Document not found');
+    await doc.destroy();
+    return { message: 'Vehicle document deleted successfully' };
   }
 }
