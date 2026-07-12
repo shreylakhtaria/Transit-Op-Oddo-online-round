@@ -11,7 +11,9 @@
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo:all"
+    "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit",
+    "test:verbose": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --verbose"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -28,6 +30,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.4",
     "sequelize-cli": "^6.6.2"
   }

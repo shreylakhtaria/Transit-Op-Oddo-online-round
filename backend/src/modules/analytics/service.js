@@ -32,7 +32,7 @@ export class AnalyticsService {
 
     // Chart Data calculations per vehicle
     const chartData = [];
-    const allVehiclesForCharts = await Vehicle.findAll();
+    const allVehiclesForCharts = await Vehicle.findAll({ where: vehicleWhere });
 
     for (const vehicle of allVehiclesForCharts) {
       // 1. Operational Costs (Fuel + Maintenance)
@@ -163,7 +163,7 @@ export class AnalyticsService {
     const stats = await this.getDashboardStats();
     
     // Sort chartData by totalOperationalCost in descending order
-    const sorted = stats.chartData.sort((a, b) => b.totalOperationalCost - a.totalOperationalCost);
+    const sorted = [...stats.chartData].sort((a, b) => b.totalOperationalCost - a.totalOperationalCost);
     
     return sorted.slice(0, limit);
   }

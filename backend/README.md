@@ -36,10 +36,13 @@ We are a group of 4 passionate developers:
 * **Credentials Verification:** Standard secure login checks credentials against hashed passwords using `bcrypt`.
 * **OTP Notification Delivery:** Generates a 6-digit random code and emails it to the user's registered address via SMTP (Nodemailer).
 * **Two-Step Login Validation:** Generates a short-lived `tempToken` JWT (valid for 5 minutes). Complete login is finalized only by submitting the OTP code alongside this token, which issues the final JWT access and refresh tokens.
+* **Account Lockout:** Locks accounts for 15 minutes after 5 consecutive failed login attempts to prevent brute-force attacks.
+* **Rate Limiting:** Protects `/register`, `/login`, and `/verify-otp` endpoints using IP-based request limits (10 requests per 15 minutes).
 * **Fallback console logging:** In development, if SMTP configurations are omitted, the code gracefully falls back to logging the generated OTP to the server console.
 
 ### 2. Fleet & Personnel Management
 * **Vehicle Registry:** Manages technical specifications of the vehicles (e.g. registration numbers, model, type, max load capacity, odometer readings, status).
+* **Vehicle Document Management:** CRUD operations to manage, attach, retrieve, and delete vehicle documents (e.g., insurance, permit, registration cards) sorted by expiry date.
 * **Driver Management:** Tracks driver status, licenses, categories, expiry dates, and safety scores.
 * **Automated Expiry Alerts:** Daily cron-compatible alerts check driver license expiry and email automated notification warnings if a driver's license is within 30 days of expiring.
 
@@ -65,10 +68,16 @@ We are a group of 4 passionate developers:
 * **Aggregated Cost Audit:** Computes operational costs (Fuel + Maintenance) and lifetime expenditures per vehicle.
 
 ### 6. Operational Analytics & CSV Reporting
-* **Dashboard KPIs:** Dynamically calculates total available/active/in-shop vehicles, active/pending trips, drivers on duty, and total fleet utilization metrics.
+* **Dashboard KPIs & Recent Trips:** Dynamically calculates available/active/in-shop vehicles, active/pending trips, drivers on duty, total fleet utilization, and includes a live feed of the 5 most recent trips.
 * **Return on Investment (ROI):** Computes financial return ratios per vehicle using `(Revenue - (Maintenance + Fuel)) / Acquisition Cost`.
 * **Fuel Efficiency:** Calculates real-time efficiency metrics `(Distance / Fuel Consumed)` per vehicle based on completed trips.
+* **Monthly Revenue Breakdown:** Aggregates completed trip revenues grouped by month (`YYYY-MM`) for charting.
+* **Top Costliest Vehicles:** Computes and lists vehicles sorted by their operational expenditures.
 * **CSV Data Export:** Provides an endpoint to generate and download a clean CSV report containing all fleet statistics, operating costs, and ROI metrics.
+
+### 7. Settings Module
+* **Global Configurations:** Manages editable global configurations such as Depot Name, Currency, and Distance Unit.
+* **Role Enforcement:** Accessible by all roles for viewing, but restricted strictly to `Fleet Manager` for updates.
 
 ---
 
@@ -145,3 +154,32 @@ Start the server in development mode with hot-reloading:
 npm run dev
 ```
 The server will start, initialize the Nodemailer SMTP transporter, connect to MySQL, and run on `http://localhost:8000`.
+
+---
+
+## 🧪 Testing the Application
+
+We have implemented a comprehensive test suite using **Jest** to ensure the reliability and business logic compliance of all endpoints. Running the tests will validate every single API module and business logic constraint.
+
+### How to Run Tests
+To run all tests, execute the following command in the `backend/` folder:
+```bash
+npm test
+```
+
+For verbose execution detailing each individual test assertion:
+```bash
+npm run test:verbose
+```
+
+### Test Coverage Summary
+The test suite includes 10 test modules:
+- **`auth.test.js`**: Validates registration, login, OTP generation/validation, refresh token rotation, and account lockouts.
+- **`fleet.test.js`**: Tests vehicle registry CRUD, unique constraints, and document attachments.
+- **`trips.test.js`**: Tests the entire trip lifecycle, status transitions, cargo capacity checks, driver suspension constraints, and odometer updates.
+- **`maintenance.test.js`**: Tests shop entry/exit state transitions, trip blocks, and cost tagging.
+- **`finance.test.js`**: Tests fuel logging, general expenses, and vehicle operational cost summaries.
+- **`analytics.test.js`**: Validates dashboard KPI stats, fleet utilization calculations, ROI formula math, and CSV exports.
+- **`settings.test.js`**: Asserts retrieving and updating of global settings.
+- **`middleware.test.js`**: Confirms role-based access control and token-verification middleware.
+- **`validators.test.js`**: Confirms incoming request validation rules.

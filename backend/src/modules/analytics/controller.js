@@ -23,6 +23,8 @@ export class AnalyticsController {
     } catch (error) {
       next(error);
     }
+  }
+
   static async getMonthlyRevenue(req, res, next) {
     try {
       const data = await AnalyticsService.getMonthlyRevenue();
