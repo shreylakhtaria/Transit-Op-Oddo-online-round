@@ -47,8 +47,10 @@ code is printed to the backend console** — keep that terminal visible when sig
 ## Shape of the API (verified against the running server, not the docs)
 
 - Routes are mounted **flat**: `/api/vehicles`, not `/api/fleet/vehicles`.
-- **No pagination and no `{data: ...}` envelope.** Every list endpoint returns a bare
-  top-level array. The table footers show real counts rather than fake page numbers.
+- **List endpoints return a bare top-level array by default** — no `{data: ...}` envelope.
+  Pagination is **opt-in** (added in PR #1): pass `?page=` or `?limit=` and you get
+  `{ data, total, page, limit }` instead. With no params the shape is unchanged, so the
+  frontend stays on the bare-array path and its table footers show real counts.
 - Access tokens expire in 15 minutes; `lib/api/client.ts` transparently spends the
   refresh token and replays the request once on a 401. Refresh tokens are not rotated.
 
@@ -68,22 +70,36 @@ The design and the database disagree, and the database wins. These bit us once a
 
 ## Wired to live data
 
-Dashboard · Vehicle Registry · Drivers · Trips · Maintenance (incl. the Log Service
-Record form, which really POSTs) · Analytics · Settings → General Depot Settings
-(reads and writes `DEPOT_NAME` / `CURRENCY` / `DISTANCE_UNIT`).
+Every screen. Login (two-step) · Dashboard · Vehicle Registry · Drivers · Trips ·
+Maintenance (the Log Service Record form really POSTs) · Fuel & Expenses (incl. the Fuel
+Logs table) · Analytics · Settings (depot config read/write, plus real roles, real user
+counts, and working role reassignment).
 
 ## Still on mock data — carries a `<MockBadge>` in the UI
 
-These have **no backing endpoint**. The badge exists so mock rows are never mistaken
-for real ones.
+Three panels, and only because the API genuinely has **no endpoint** for them. The badge
+exists so mock rows are never mistaken for real ones.
 
 | UI | Missing endpoint |
 | --- | --- |
-| Fuel Logs table | `GET /fuel-logs` — the API can `POST /expenses/fuel` but offers no way to read them back |
-| Settings → RBAC table | `GET /users`, `GET /roles`, role assignment |
-| Settings → Security & Auth | no security-settings endpoints |
 | Dashboard → Fleet Health Index | no health endpoint |
 | Dashboard → Critical Alerts | no alerts endpoint |
+| Settings → Security & Auth | no security-settings endpoints (2FA, session timeout, password policy) |
+
+## Deliberately deleted, not wired
+
+Some of the mockup describes things the system cannot know. Rendering them next to real
+numbers would be fiction, so they are gone rather than faked:
+
+- **RBAC permission columns** ("Data Visibility" / "Ops Control" / "Financials"). The
+  `Roles` table holds only `id` and `name`; permissions are enforced in backend route
+  guards, not stored as data. Nothing could ever populate those columns. The panel now
+  shows real roles, real user counts, and role reassignment instead.
+- **"Define New Role"** — there is no role-creation endpoint, and `PATCH /users/:id/role`
+  rejects any name outside the four seeded roles.
+- **The login "Role (RBAC)" picker.** `POST /auth/login` takes only email + password —
+  your role comes from your account. A picker implied you could choose your own privileges.
+  It also offered **"Dispatcher"**, which is not a real role; the fourth role is **Driver**.
 
 ## Dropped from the design (no data to back it)
 
@@ -92,9 +108,27 @@ trend/delta caption (`+4.2%`, `+1.2% vs last month`, …) · the Jun–Aug proje
 on the revenue chart. These were invented figures in the mockup; showing them against a
 live API would have been lying to the user.
 
-## Ask the backend team for
+## Backend gaps — closed in PR #1
 
-1. `GET /fuel-logs` (or make `GET /expenses` include fuel rows with litres + price).
-2. User/role endpoints, so RBAC stops being decorative. Note `POST /auth/register` is
-   currently **unauthenticated and lets anyone self-assign the Fleet Manager role**.
-3. Pagination (`?page=`/`?limit=`) on list endpoints before the fleet grows.
+These were the blockers. All four are implemented on branch `pratham-backend-gaps` and
+open as [PR #1](https://github.com/shreylakhtaria/Transit-Op-Oddo-online-round/pull/1):
+
+1. **`POST /auth/register` was a privilege-escalation hole** — no `requireAuth`, and it
+   accepted a client-supplied `roleName` including `Fleet Manager`. An anonymous caller
+   got a `201 Created` admin account. It now requires an authenticated Fleet Manager.
+   (Plus a guard refusing to demote the *last* Fleet Manager, which would otherwise lock
+   everyone out of user management permanently.)
+2. **`GET /expenses/fuel`** — fuel logs were write-only, so the Fuel Logs table was
+   impossible to populate.
+3. **Users & roles API** — `GET /roles`, `GET /users`, `PATCH /users/:id/role`.
+4. **Opt-in pagination** on the list endpoints, backwards compatible.
+
+Merge that PR before running this frontend against `main`, or the Fuel Logs and RBAC
+panels will 404.
+
+### Still open for the backend team
+
+- No endpoints for fleet health, critical alerts, or the security settings (2FA, session
+  timeout, password policy) — those three panels stay on mock data.
+- Their test suite could not run on a fresh clone (`env.js` exits when `JWT_SECRET` is
+  missing and `.env` is gitignored). PR #1 fixes that too.

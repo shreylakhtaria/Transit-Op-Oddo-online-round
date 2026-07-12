@@ -9,16 +9,27 @@ import {
   Fuel,
   Gauge,
   Landmark,
-  Navigation,
   ShieldCheck,
+  User,
   UserCog,
+  Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useDashboard, useMonthlyRevenue, useTopCostliest } from "@/lib/api/hooks";
-import type { VehicleCostRow } from "@/lib/api/types";
+import {
+  useDashboard,
+  useMonthlyRevenue,
+  useRoles,
+  useTopCostliest,
+} from "@/lib/api/hooks";
+import type { Role, VehicleCostRow } from "@/lib/api/types";
 import { Button, Panel, PageHeader, Table, Td, Th, Tr } from "@/components/ui";
-import { EmptyState, ErrorState, MockBadge, Skeleton } from "@/components/ui/async";
+import {
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  TableSkeleton,
+} from "@/components/ui/async";
 
 /* ------------------------------------------------------------- formatting */
 
@@ -113,74 +124,40 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
 }
 
 /* ----------------------------------------------------------------- RBAC rows */
-/* No user/role endpoint exists on the API yet — this table stays on mock data. */
+/*
+ * The `Roles` table stores an id and a name — nothing else. Permissions are enforced in
+ * the route guards (`requireRole`), never persisted as data, so the old "Data Visibility"
+ * / "Financial Access" columns had no source and were quietly invented. This table now
+ * shows only what the API can actually answer: which roles exist, and who holds them.
+ */
 
-type Role = {
-  role: string;
-  icon: LucideIcon;
-  visibility: string;
-  control: string;
-  financial: string;
-  financialMuted?: boolean;
-  controlMuted?: boolean;
-  status: string;
-  admin: boolean;
+const ROLE_ICONS: Record<string, LucideIcon> = {
+  "Fleet Manager": UserCog,
+  Driver: Users,
+  "Safety Officer": ShieldCheck,
+  "Financial Analyst": Landmark,
 };
 
-const ROLES: Role[] = [
-  {
-    role: "Fleet Manager",
-    icon: UserCog,
-    visibility: "Full Organization",
-    control: "Write / Dispatch",
-    financial: "Read-only",
-    financialMuted: true,
-    status: "Admin",
-    admin: true,
-  },
-  {
-    role: "Dispatcher",
-    icon: Navigation,
-    visibility: "Live Fleet & Routing",
-    control: "Write / Active Ops",
-    financial: "Hidden",
-    financialMuted: true,
-    status: "Operator",
-    admin: false,
-  },
-  {
-    role: "Safety Officer",
-    icon: ShieldCheck,
-    visibility: "Incident Reports",
-    control: "Read-only",
-    financial: "Hidden",
-    financialMuted: true,
-    status: "Auditor",
-    admin: false,
-  },
-  {
-    role: "Financial Analyst",
-    icon: Landmark,
-    visibility: "Historical Billing",
-    control: "Hidden",
-    controlMuted: true,
-    financial: "Full Approval",
-    status: "Admin",
-    admin: true,
-  },
-];
+function RoleRow({ role }: { role: Role }) {
+  // Roles are seeded, but the backend can add more — fall back rather than render nothing.
+  // Read the icon off the map directly: resolving it through a helper *call* trips
+  // react-hooks/static-components, which can't see that the result is a stable component.
+  const Icon = ROLE_ICONS[role.name] ?? User;
 
-function RoleBadge({ children, admin }: { children: string; admin: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center rounded border px-2 py-px text-[10px] font-bold uppercase ${
-        admin
-          ? "border-accent/20 bg-accent-dim text-accent"
-          : "border-line bg-surface-4/50 text-ink"
-      }`}
-    >
-      {children}
-    </span>
+    <Tr>
+      <Td>
+        <div className="flex items-center gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-4/50">
+            <Icon className="size-4 text-muted" strokeWidth={2} />
+          </span>
+          <span className="text-sm font-bold text-ink">{role.name}</span>
+        </div>
+      </Td>
+      <Td align="right" mono className="text-sm text-ink">
+        {role.userCount}
+      </Td>
+    </Tr>
   );
 }
 
@@ -206,6 +183,7 @@ export default function AnalyticsPage() {
   const dashboard = useDashboard();
   const revenue = useMonthlyRevenue();
   const costliest = useTopCostliest(5);
+  const roles = useRoles();
 
   const chartData = dashboard.data?.chartData ?? [];
   const kpis: Kpi[] = [
@@ -242,6 +220,8 @@ export default function AnalyticsPage() {
 
   const costRows = costliest.data ?? [];
   const maxCost = Math.max(0, ...costRows.map((r) => r.totalOperationalCost));
+
+  const roleRows = roles.data ?? [];
 
   return (
     <>
@@ -429,18 +409,16 @@ export default function AnalyticsPage() {
         </Panel>
       </div>
 
-      {/* Settings & RBAC — no user/role endpoint on the API yet, so this stays mock. */}
+      {/* Settings & RBAC — real roles from GET /roles, with live user counts. */}
       <Panel className="overflow-hidden">
         <div className="glass-elevated flex items-center justify-between border-b border-line px-6 py-5">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold leading-7 text-ink">
-                Settings & RBAC
-              </h2>
-              <MockBadge reason="No RBAC endpoint on the API yet" />
-            </div>
+            <h2 className="text-xl font-semibold leading-7 text-ink">
+              Settings & RBAC
+            </h2>
             <p className="text-xs leading-4 text-muted">
-              Role-Based Access Control matrix for system-wide transparency.
+              Role-Based Access Control — the system roles and how many users
+              hold each.
             </p>
           </div>
           <button
@@ -451,50 +429,30 @@ export default function AnalyticsPage() {
           </button>
         </div>
 
-        <Table>
-          <thead>
-            <tr>
-              <Th>System Role</Th>
-              <Th>Data Visibility</Th>
-              <Th>Operational Control</Th>
-              <Th>Financial Access</Th>
-              <Th>User Status</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {ROLES.map((r) => {
-              const Icon = r.icon;
-              return (
-                <Tr key={r.role}>
-                  <Td>
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-4/50">
-                        <Icon className="size-4 text-muted" strokeWidth={2} />
-                      </span>
-                      <span className="text-sm font-bold text-ink">
-                        {r.role}
-                      </span>
-                    </div>
-                  </Td>
-                  <Td className="text-sm text-ink">{r.visibility}</Td>
-                  <Td
-                    className={`text-sm ${r.controlMuted ? "text-muted" : "text-ink"}`}
-                  >
-                    {r.control}
-                  </Td>
-                  <Td
-                    className={`text-sm ${r.financialMuted ? "text-muted" : "text-ink"}`}
-                  >
-                    {r.financial}
-                  </Td>
-                  <Td>
-                    <RoleBadge admin={r.admin}>{r.status}</RoleBadge>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </tbody>
-        </Table>
+        {roles.isLoading ? (
+          <TableSkeleton rows={4} cols={2} />
+        ) : roles.error ? (
+          <ErrorState error={roles.error} onRetry={() => roles.refetch()} />
+        ) : roleRows.length === 0 ? (
+          <EmptyState
+            title="No roles defined"
+            hint="Roles created on the backend will appear here."
+          />
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>System Role</Th>
+                <Th align="right">Users</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {roleRows.map((r) => (
+                <RoleRow key={r.id} role={r} />
+              ))}
+            </tbody>
+          </Table>
+        )}
       </Panel>
     </>
   );

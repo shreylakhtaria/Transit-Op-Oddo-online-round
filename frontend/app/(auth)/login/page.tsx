@@ -4,7 +4,6 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AtSign,
-  ChevronDown,
   Eye,
   EyeOff,
   KeyRound,
@@ -16,15 +15,16 @@ import {
   ShieldCheck,
   Truck,
   Wallet,
-  UserCog,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { login, tokenStore, verifyOtp } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
+// The four roles the backend actually seeds. The mockup showed a "Dispatcher",
+// which does not exist — the real fourth role is Driver.
 const ROLES = [
   { label: "Fleet Manager", icon: LayoutGrid },
-  { label: "Dispatcher", icon: Route },
+  { label: "Driver", icon: Route },
   { label: "Safety Officer", icon: ShieldCheck },
   { label: "Financial Analyst", icon: Wallet },
 ] as const;
@@ -53,7 +53,6 @@ const CONTROL =
 export default function LoginPage() {
   const emailId = useId();
   const passwordId = useId();
-  const roleId = useId();
   const otpId = useId();
   const router = useRouter();
   const { refreshUser } = useAuth();
@@ -265,25 +264,9 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <AuthLabel htmlFor={roleId} icon={<UserCog className="size-3" />}>
-                  Role (RBAC)
-                </AuthLabel>
-                <div className="relative">
-                  <select
-                    id={roleId}
-                    defaultValue="Dispatcher"
-                    className={`${CONTROL} appearance-none pr-11`}
-                  >
-                    {ROLES.map(({ label }) => (
-                      <option key={label} value={label}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-                </div>
-              </div>
+              {/* The design had a "Role (RBAC)" picker here. It's removed on purpose:
+                  POST /auth/login takes only email + password, and your role comes from
+                  your account. A picker would imply you can choose your own privileges. */}
 
               <div className="flex items-center justify-between">
                 <button
