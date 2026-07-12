@@ -18,6 +18,13 @@ const envSchema = z.object({
   DB_NAME: z.string().default('transit_ops_db'),
   DB_USER: z.string().default('root'),
   DB_PASS: z.string().optional().default(''),
+  // Managed MySQL (TiDB Cloud, Aiven, PlanetScale…) requires TLS; a local MySQL does not.
+  // Parsed by hand rather than z.coerce.boolean(), which would turn the string "false" into true.
+  DB_SSL: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters long'),
   JWT_EXPIRES_IN: z.string().default('15m'),

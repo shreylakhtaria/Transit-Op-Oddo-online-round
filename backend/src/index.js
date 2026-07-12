@@ -1,36 +1,18 @@
-import express from 'express';
-import cors from 'cors';
-import morgan from 'morgan';
 import { env } from './config/env.js';
 import { testDbConnection } from './config/database.js';
-import apiRouter from './routes/index.js';
+import app from './app.js';
 
-const app = express();
-
-// Middlewares
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
-
-// Route mounting
-app.use('/api', apiRouter);
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('❌ Error caught by global handler:', err.message || err);
-  
-  const status = err.status || 500;
-  const message = err.message || 'Internal Server Error';
-
-  return res.status(status).json({
-    error: message
-  });
-});
-
-// Start Server
+/**
+ * Standalone server entrypoint — local dev, Render, a VM, anything long-running.
+ * Serverless uses api/index.js instead, which imports the same app without binding a port.
+ */
 const startServer = async () => {
-  // Test connection to database before starting the listener
-  await testDbConnection();
+  try {
+    await testDbConnection();
+  } catch (error) {
+    console.error('❌ Unable to connect to the MySQL database:', error);
+    process.exit(1);
+  }
 
   app.listen(env.PORT, () => {
     console.log(`🚀 TransitOps Backend is running in [${env.NODE_ENV}] mode on port ${env.PORT}`);
