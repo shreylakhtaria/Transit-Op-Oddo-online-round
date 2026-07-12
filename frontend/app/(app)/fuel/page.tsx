@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart3,
   Download,
@@ -20,6 +20,9 @@ import {
   Td,
   Th,
   Tr,
+  Field,
+  Input,
+  Select,
 } from "@/components/ui";
 import {
   EmptyState,
@@ -27,17 +30,18 @@ import {
   Skeleton,
   TableSkeleton,
 } from "@/components/ui/async";
-import { useDashboard, useExpenses, useFuelLogs } from "@/lib/api/hooks";
+import { useDashboard, useExpenses, useFuelLogs, useVehicles, useCreateFuelLog, useCreateExpense } from "@/lib/api/hooks";
+import { tokenStore } from "@/lib/api/client";
 
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
-  currency: "USD",
+  currency: "INR",
   maximumFractionDigits: 0,
 });
 
-const currencyCents = new Intl.NumberFormat("en-US", {
+const currencyCents = new Intl.NumberFormat("en-IN", {
   style: "currency",
-  currency: "USD",
+  currency: "INR",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -127,8 +131,123 @@ export default function FuelPage() {
     refetch: refetchFuel,
   } = useFuelLogs();
 
+  const { data: vehicles } = useVehicles();
+
+  const createFuelLog = useCreateFuelLog();
+  const createExpense = useCreateExpense();
+
   const expenses = useMemo(() => expenseData ?? [], [expenseData]);
   const fuelLogs = useMemo(() => fuelData ?? [], [fuelData]);
+
+  // Log Fuel States
+  const [isFuelOpen, setIsFuelOpen] = useState(false);
+  const [fuelVehicleId, setFuelVehicleId] = useState("");
+  const [fuelLiters, setFuelLiters] = useState("");
+  const [fuelCost, setFuelCost] = useState("");
+  const [fuelDate, setFuelDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fuelErrorMsg, setFuelErrorMsg] = useState("");
+
+  // Add Expense States
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+  const [expVehicleId, setExpVehicleId] = useState("");
+  const [expDesc, setExpDesc] = useState("");
+  const [expAmount, setExpAmount] = useState("");
+  const [expCategory, setExpCategory] = useState("Toll");
+  const [expDate, setExpDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expErrorMsg, setExpErrorMsg] = useState("");
+
+  const resetFuelForm = () => {
+    setFuelVehicleId("");
+    setFuelLiters("");
+    setFuelCost("");
+    setFuelDate(new Date().toISOString().slice(0, 10));
+    setFuelErrorMsg("");
+  };
+
+  const resetExpenseForm = () => {
+    setExpVehicleId("");
+    setExpDesc("");
+    setExpAmount("");
+    setExpCategory("Toll");
+    setExpDate(new Date().toISOString().slice(0, 10));
+    setExpErrorMsg("");
+  };
+
+  const handleLogFuel = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFuelErrorMsg("");
+    if (!fuelVehicleId) {
+      setFuelErrorMsg("Please select a vehicle.");
+      return;
+    }
+    createFuelLog.mutate({
+      vehicleId: Number(fuelVehicleId),
+      liters: Number(fuelLiters),
+      cost: Number(fuelCost),
+      date: fuelDate,
+    }, {
+      onSuccess: () => {
+        resetFuelForm();
+        setIsFuelOpen(false);
+        refetchDashboard();
+      },
+      onError: (err) => {
+        setFuelErrorMsg(err instanceof Error ? err.message : "Failed to log fuel");
+      }
+    });
+  };
+
+  const handleAddExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    setExpErrorMsg("");
+    if (!expVehicleId) {
+      setExpErrorMsg("Please select a vehicle.");
+      return;
+    }
+    createExpense.mutate({
+      vehicleId: Number(expVehicleId),
+      description: expDesc,
+      amount: Number(expAmount),
+      category: expCategory,
+      date: expDate,
+    }, {
+      onSuccess: () => {
+        resetExpenseForm();
+        setIsExpenseOpen(false);
+        refetchDashboard();
+      },
+      onError: (err) => {
+        setExpErrorMsg(err instanceof Error ? err.message : "Failed to save expense");
+      }
+    });
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      const token = tokenStore.access;
+      const response = await fetch("http://localhost:8000/api/analytics/export/csv", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        }
+      });
+      if (!response.ok) throw new Error("Failed to export CSV");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "operational_cost_report.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const vehicleOptions = useMemo(() =>
+    ["Select a vehicle", ...(vehicles ?? []).map(v => `${v.id} · ${v.registrationNumber} (${v.model})`)],
+    [vehicles]
+  );
 
   const costs = useMemo(() => {
     const rows = dashboard?.chartData ?? [];
@@ -160,6 +279,7 @@ export default function FuelPage() {
             <Button
               icon={<Plus className="size-3.5" strokeWidth={3} />}
               className="px-5 py-2.5 text-sm"
+              onClick={() => setIsFuelOpen(true)}
             >
               Log Fuel
             </Button>
@@ -167,6 +287,7 @@ export default function FuelPage() {
               variant="outline"
               icon={<ReceiptText className="size-4" />}
               className="px-5 py-2.5 text-sm"
+              onClick={() => setIsExpenseOpen(true)}
             >
               Add Expense
             </Button>
@@ -174,6 +295,7 @@ export default function FuelPage() {
               variant="outline"
               icon={<Download className="size-4" />}
               className="border-transparent bg-surface-3 px-5 py-2.5 text-sm"
+              onClick={handleExportCsv}
             >
               Export CSV
             </Button>
@@ -418,6 +540,98 @@ export default function FuelPage() {
           </div>
         </div>
       </section>
+
+      {/* Log Fuel Modal */}
+      {isFuelOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-md p-6 rounded-xl flex flex-col gap-6 shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-line">
+            <h2 className="text-xl font-bold text-ink">Log Fuel Consumption</h2>
+            <form onSubmit={handleLogFuel} className="flex flex-col gap-4">
+              <Field label="Vehicle">
+                <Select
+                  options={vehicleOptions}
+                  value={fuelVehicleId ? vehicleOptions.find(opt => opt.startsWith(fuelVehicleId)) : "Select a vehicle"}
+                  onChange={e => setFuelVehicleId(e.target.value.split(" · ")[0])}
+                />
+              </Field>
+
+              <div className="flex gap-4">
+                <Field label="Liters" className="flex-1">
+                  <Input required type="number" step="0.1" min="1" placeholder="45.5" value={fuelLiters} onChange={e => setFuelLiters(e.target.value)} />
+                </Field>
+                <Field label="Cost (INR)" className="flex-1">
+                  <Input required type="number" step="0.01" min="1" placeholder="85.00" value={fuelCost} onChange={e => setFuelCost(e.target.value)} />
+                </Field>
+              </div>
+
+              <Field label="Date">
+                <Input required type="date" value={fuelDate} onChange={e => setFuelDate(e.target.value)} className="font-mono" />
+              </Field>
+
+              {fuelErrorMsg && <p className="text-sm text-danger">{fuelErrorMsg}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 justify-center py-3 text-sm" disabled={createFuelLog.isPending}>
+                  {createFuelLog.isPending ? "Logging..." : "Log Fuel"}
+                </Button>
+                <Button variant="outline" className="flex-1 justify-center py-3 text-sm" onClick={() => { resetFuelForm(); setIsFuelOpen(false); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Expense Modal */}
+      {isExpenseOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass w-full max-w-md p-6 rounded-xl flex flex-col gap-6 shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-line">
+            <h2 className="text-xl font-bold text-ink">Add Operational Expense</h2>
+            <form onSubmit={handleAddExpense} className="flex flex-col gap-4">
+              <Field label="Vehicle">
+                <Select
+                  options={vehicleOptions}
+                  value={expVehicleId ? vehicleOptions.find(opt => opt.startsWith(expVehicleId)) : "Select a vehicle"}
+                  onChange={e => setExpVehicleId(e.target.value.split(" · ")[0])}
+                />
+              </Field>
+
+              <Field label="Expense Category">
+                <Select
+                  options={["Toll", "Permit", "Other"]}
+                  value={expCategory}
+                  onChange={e => setExpCategory(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Description">
+                <Input required placeholder="Highway Toll Tax" value={expDesc} onChange={e => setExpDesc(e.target.value)} />
+              </Field>
+
+              <div className="flex gap-4">
+                <Field label="Amount (INR)" className="flex-1">
+                  <Input required type="number" step="0.01" min="1" placeholder="25.00" value={expAmount} onChange={e => setExpAmount(e.target.value)} />
+                </Field>
+                <Field label="Date" className="flex-1">
+                  <Input required type="date" value={expDate} onChange={e => setExpDate(e.target.value)} className="font-mono" />
+                </Field>
+              </div>
+
+              {expErrorMsg && <p className="text-sm text-danger">{expErrorMsg}</p>}
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 justify-center py-3 text-sm" disabled={createExpense.isPending}>
+                  {createExpense.isPending ? "Adding..." : "Add Expense"}
+                </Button>
+                <Button variant="outline" className="flex-1 justify-center py-3 text-sm" onClick={() => { resetExpenseForm(); setIsExpenseOpen(false); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -32,9 +32,9 @@ const STATUS_TONE: Record<VehicleStatus, Tone> = {
 const ALL_TYPES = "All Types";
 const ALL_STATUS = "All Status";
 
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
-  currency: "USD",
+  currency: "INR",
   maximumFractionDigits: 0,
 });
 
@@ -266,7 +266,7 @@ export default function FleetPage() {
                   <Input required type="number" min="0" placeholder="1000" value={odometerVal} onChange={e => setOdometerVal(e.target.value)} />
                 </Field>
               </div>
-              <Field label="Acquisition Cost (USD)">
+              <Field label="Acquisition Cost (INR)">
                 <Input required type="number" min="1" placeholder="25000" value={costVal} onChange={e => setCostVal(e.target.value)} />
               </Field>
 

@@ -34,14 +34,14 @@ import {
 /* ------------------------------------------------------------- formatting */
 
 const currency = (n: number) =>
-  n.toLocaleString("en-US", {
+  n.toLocaleString("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     maximumFractionDigits: 0,
   });
 
 const compact = (n: number) =>
-  n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 const decimal = (n: number) => n.toFixed(1);
 
@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
     {
       label: "Operational Cost",
       value: compact(sum(chartData, (r) => r.totalOperationalCost)),
-      unit: "$",
+      unit: "₹",
       unitLeading: true,
       icon: Wallet,
     },
@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
                 Monthly Revenue
               </h2>
               <p className="text-xs leading-4 text-muted">
-                Annualized growth trajectory (USD)
+                Annualized growth trajectory (INR)
               </p>
             </div>
             <div className="flex items-center gap-2">

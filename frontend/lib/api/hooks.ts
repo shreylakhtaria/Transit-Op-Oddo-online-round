@@ -146,3 +146,91 @@ export function useUpdateSettings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.settings }),
   });
 }
+
+export function useCreateTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<Trip>) => api.post<Trip>("/trips", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.trips });
+    },
+  });
+}
+
+export function useDispatchTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.post<Trip>(`/trips/${id}/dispatch`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.trips });
+      qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: keys.drivers });
+    },
+  });
+}
+
+export function useCompleteTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; actualDistance: number; fuelConsumed: number; fuelCost?: number; revenue: number }) =>
+      api.post<Trip>(`/trips/${id}/complete`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.trips });
+      qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: keys.drivers });
+      qc.invalidateQueries({ queryKey: keys.expenses });
+      qc.invalidateQueries({ queryKey: keys.fuelLogs });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+  });
+}
+
+export function useCancelTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.post<Trip>(`/trips/${id}/cancel`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.trips });
+      qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: keys.drivers });
+    },
+  });
+}
+
+export function useCloseMaintenance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: number; endDate?: string }) =>
+      api.post<MaintenanceLog>(`/maintenance/${id}/close`, { endDate }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.maintenance });
+      qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+  });
+}
+
+export function useCreateFuelLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { vehicleId: number; tripId?: number; liters: number; cost: number; date: string }) =>
+      api.post<FuelLog>("/expenses/fuel", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.fuelLogs });
+      qc.invalidateQueries({ queryKey: keys.expenses });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+  });
+}
+
+export function useCreateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { vehicleId: number; description: string; amount: number; category: string; date: string }) =>
+      api.post<Expense>("/expenses/other", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.expenses });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+  });
+}

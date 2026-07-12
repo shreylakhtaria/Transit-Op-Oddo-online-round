@@ -26,7 +26,7 @@ import {
   Tr,
 } from "@/components/ui";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
-import { useCreateMaintenance, useMaintenance, useVehicles } from "@/lib/api/hooks";
+import { useCreateMaintenance, useMaintenance, useVehicles, useCloseMaintenance } from "@/lib/api/hooks";
 import type { MaintenanceStatus } from "@/lib/api/types";
 
 const SERVICE_TYPES = [
@@ -36,9 +36,9 @@ const SERVICE_TYPES = [
   "Tire Rotation",
 ];
 
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
-  currency: "USD",
+  currency: "INR",
 });
 
 /** Rounded outline pill used by the service log — distinct from the square StatusPill. */
@@ -142,6 +142,7 @@ export default function MaintenancePage() {
   } = useMaintenance();
   const { data: vehicles } = useVehicles();
   const createLog = useCreateMaintenance();
+  const closeLog = useCloseMaintenance();
 
   const [vehicleId, setVehicleId] = useState("");
   const [description, setDescription] = useState(SERVICE_TYPES[0]);
@@ -236,7 +237,7 @@ export default function MaintenancePage() {
                   />
                 </Field>
 
-                <Field label="Cost (USD)" className="flex-1">
+                <Field label="Cost (INR)" className="flex-1">
                   <Input
                     type="number"
                     min="0"
@@ -349,8 +350,8 @@ export default function MaintenancePage() {
                       Cost
                     </Th>
                     <Th className="px-2 whitespace-nowrap">Status</Th>
-                    <Th className="px-2 w-8">
-                      <span className="sr-only">Actions</span>
+                    <Th align="right" className="px-2 w-24">
+                      Actions
                     </Th>
                   </tr>
                 </thead>
@@ -388,13 +389,17 @@ export default function MaintenancePage() {
                         <Td className="px-2">
                           <LogPill status={log.status}>{log.status}</LogPill>
                         </Td>
-                        <Td className="px-2">
-                          <button
-                            type="button"
-                            className="text-muted transition hover:text-ink"
-                          >
-                            <MoreVertical className="size-4" />
-                          </button>
+                        <Td className="px-2" align="right">
+                          {log.status === "Active" && (
+                            <Button
+                              variant="outline"
+                              className="px-2.5 py-1 text-xs"
+                              onClick={() => closeLog.mutate({ id: log.id })}
+                              disabled={closeLog.isPending}
+                            >
+                              {closeLog.isPending && closeLog.variables?.id === log.id ? "..." : "Close"}
+                            </Button>
+                          )}
                         </Td>
                       </Tr>
                     );
