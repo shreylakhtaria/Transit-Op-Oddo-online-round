@@ -119,4 +119,13 @@ export class FleetController {
       return res.status(404).json({ error: error.message });
     }
   }
+
+  static async sendLicenseExpiryReminders(req, res, next) {
+    try {
+      const result = await FleetService.sendLicenseExpiryReminders();
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

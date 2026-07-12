@@ -92,4 +92,50 @@ export class FleetService {
     await driver.destroy();
     return { message: 'Driver deleted successfully' };
   }
+
+  static async sendLicenseExpiryReminders() {
+    const { sendEmail } = await import('../../config/mailer.js');
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+    const todayStr = today.toISOString().split('T')[0];
+    const targetStr = thirtyDaysFromNow.toISOString().split('T')[0];
+
+    const expiringDrivers = await Driver.findAll({
+      where: {
+        licenseExpiryDate: {
+          [Op.between]: [todayStr, targetStr]
+        }
+      },
+      include: [{ model: User, as: 'user', attributes: ['email', 'name'] }]
+    });
+
+    const results = [];
+
+    for (const driver of expiringDrivers) {
+      const emailRecipient = driver.user?.email || 'safety@transitops.com';
+      const emailName = driver.user?.name || driver.name;
+      const message = `Dear ${emailName},\n\nThis is a friendly reminder that driver ${driver.name}'s license (Number: ${driver.licenseNumber}) is expiring on ${driver.licenseExpiryDate}.\n\nPlease renew the license as soon as possible to avoid trip dispatch blocks.\n\nBest regards,\nTransitOps Safety Department`;
+
+      await sendEmail({
+        to: emailRecipient,
+        subject: `TransitOps License Expiration Reminder: ${driver.name}`,
+        text: message
+      });
+
+      results.push({
+        driverId: driver.id,
+        driverName: driver.name,
+        licenseNumber: driver.licenseNumber,
+        expiryDate: driver.licenseExpiryDate,
+        sentTo: emailRecipient
+      });
+    }
+
+    return {
+      message: `Checked for expiring licenses. Sent ${results.length} reminders.`,
+      remindersSent: results
+    };
+  }
 }

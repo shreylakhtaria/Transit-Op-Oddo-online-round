@@ -21,5 +21,6 @@ router.get('/drivers/:id', FleetController.getDriverById);
 router.post('/drivers', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.createDriver);
 router.put('/drivers/:id', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.updateDriver);
 router.delete('/drivers/:id', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.deleteDriver);
+router.post('/drivers/remind-expiry', requireRole(['Fleet Manager', 'Safety Officer']), FleetController.sendLicenseExpiryReminders);
 
 export default router;

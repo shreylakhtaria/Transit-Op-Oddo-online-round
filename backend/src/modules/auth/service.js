@@ -39,9 +39,30 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    // Check lock state
+    if (user.lockUntil && new Date() < user.lockUntil) {
+      const remainingTime = Math.ceil((new Date(user.lockUntil) - new Date()) / 1000 / 60);
+      throw new Error(`Account is locked due to multiple failed login attempts. Try again in ${remainingTime} minutes.`);
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      user.failedAttempts += 1;
+      if (user.failedAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 mins lock
+        user.failedAttempts = 0;
+        await user.save();
+        throw new Error('Account locked after 5 failed attempts.');
+      }
+      await user.save();
       throw new Error('Invalid email or password');
+    }
+
+    // Reset attempts on success
+    if (user.failedAttempts > 0 || user.lockUntil) {
+      user.failedAttempts = 0;
+      user.lockUntil = null;
+      await user.save();
     }
 
     // Generate 6-digit numeric OTP code
