@@ -2,13 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
+import { ApiError } from "./client";
 import type {
+  AdminUser,
   CreateMaintenanceBody,
   DashboardData,
   Driver,
   Expense,
+  FuelLog,
   MaintenanceLog,
   MonthlyRevenue,
+  Role,
   Settings,
   Trip,
   Vehicle,
@@ -21,6 +25,9 @@ export const keys = {
   trips: ["trips"] as const,
   maintenance: ["maintenance"] as const,
   expenses: ["expenses"] as const,
+  fuelLogs: ["expenses", "fuel"] as const,
+  roles: ["roles"] as const,
+  users: ["users"] as const,
   settings: ["settings"] as const,
   dashboard: ["analytics", "dashboard"] as const,
   monthlyRevenue: ["analytics", "monthly-revenue"] as const,
@@ -47,6 +54,40 @@ export const useExpenses = () =>
 
 export const useSettings = () =>
   useQuery({ queryKey: keys.settings, queryFn: () => api.get<Settings>("/settings") });
+
+export const useFuelLogs = () =>
+  useQuery({
+    queryKey: keys.fuelLogs,
+    queryFn: () => api.get<FuelLog[]>("/expenses/fuel"),
+  });
+
+export const useRoles = () =>
+  useQuery({ queryKey: keys.roles, queryFn: () => api.get<Role[]>("/roles") });
+
+/**
+ * GET /users is Fleet Manager only. A Dispatcher or Safety Officer gets a 403 —
+ * that's the RBAC working, not a failure, so don't retry it and let callers
+ * render the roles-only view instead of an error.
+ */
+export const useUsers = () =>
+  useQuery({
+    queryKey: keys.users,
+    queryFn: () => api.get<AdminUser[]>("/users"),
+    retry: (_count, error) =>
+      !(error instanceof ApiError && error.status === 403),
+  });
+
+export function useUpdateUserRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, roleName }: { id: string; roleName: string }) =>
+      api.patch<AdminUser>(`/users/${id}/role`, { roleName }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.users });
+      qc.invalidateQueries({ queryKey: keys.roles });
+    },
+  });
+}
 
 export const useDashboard = () =>
   useQuery({

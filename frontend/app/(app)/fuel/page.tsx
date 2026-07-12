@@ -24,11 +24,10 @@ import {
 import {
   EmptyState,
   ErrorState,
-  MockBadge,
   Skeleton,
   TableSkeleton,
 } from "@/components/ui/async";
-import { useDashboard, useExpenses } from "@/lib/api/hooks";
+import { useDashboard, useExpenses, useFuelLogs } from "@/lib/api/hooks";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -43,28 +42,27 @@ const currencyCents = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-/**
- * The API can WRITE fuel logs (POST /expenses/fuel) but exposes no endpoint to
- * READ them back — GET /expenses returns generic Expense rows only. Until a
- * GET /fuel-logs lands, this table stays on mock data and is badged as such.
- */
-type FuelLog = {
-  id: string;
-  vehicle: string;
-  date: string;
-  litres: string;
-  cost: string;
-};
+const litres = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
 
-const MOCK_FUEL_LOGS: FuelLog[] = [
-  { id: "f1", vehicle: "TRK-9902-FL", date: "Oct 24, 2023", litres: "420.5 L", cost: "$706.44" },
-  { id: "f2", vehicle: "VAN-1120-MD", date: "Oct 24, 2023", litres: "85.0 L", cost: "$142.80" },
-  { id: "f3", vehicle: "TRK-8854-FL", date: "Oct 23, 2023", litres: "380.0 L", cost: "$638.40" },
-  { id: "f4", vehicle: "TRK-2241-TX", date: "Oct 23, 2023", litres: "510.2 L", cost: "$857.14" },
-  { id: "f5", vehicle: "VAN-0933-NY", date: "Oct 22, 2023", litres: "72.5 L", cost: "$121.80" },
-  { id: "f6", vehicle: "TRK-9902-FL", date: "Oct 22, 2023", litres: "395.0 L", cost: "$663.60" },
-  { id: "f7", vehicle: "TRK-7711-CA", date: "Oct 21, 2023", litres: "440.0 L", cost: "$739.20" },
-];
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+/**
+ * `2026-07-12` → `Jul 12, 2026`. Built from the parts rather than handed to
+ * `new Date(iso)`, which reads a bare date as UTC midnight and so renders as the
+ * *previous* day for anyone west of Greenwich.
+ */
+function formatDate(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return dateFmt.format(new Date(y, m - 1, d));
+}
 
 /** KPI tile — eyebrow + big figure + a slot for the footer detail. */
 function StatTile({
@@ -122,7 +120,15 @@ export default function FuelPage() {
     refetch: refetchExpenses,
   } = useExpenses();
 
+  const {
+    data: fuelData,
+    isLoading: fuelLoading,
+    error: fuelError,
+    refetch: refetchFuel,
+  } = useFuelLogs();
+
   const expenses = useMemo(() => expenseData ?? [], [expenseData]);
+  const fuelLogs = useMemo(() => fuelData ?? [], [fuelData]);
 
   const costs = useMemo(() => {
     const rows = dashboard?.chartData ?? [];
@@ -230,55 +236,75 @@ export default function FuelPage() {
             <div className="flex items-center gap-2">
               <Fuel className="size-4 text-accent" />
               <h2 className="text-xl font-semibold text-ink">Fuel Logs</h2>
-              <MockBadge reason="API has no GET /fuel-logs endpoint yet" />
             </div>
-            <span className="rounded bg-surface-2 px-2 py-1 text-xs text-muted">
-              Showing Last 30 Days
-            </span>
+            {/* GET /expenses/fuel returns the full history, unfiltered — so the
+                chip reports the real count rather than claiming a date window. */}
+            {!fuelLoading && !fuelError && fuelLogs.length > 0 && (
+              <span className="rounded bg-surface-2 px-2 py-1 text-xs text-muted">
+                {fuelLogs.length} log{fuelLogs.length === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
-          <Table>
-            <thead>
-              <tr>
-                <Th className="px-3 whitespace-nowrap">Vehicle</Th>
-                <Th className="px-3 whitespace-nowrap">Date</Th>
-                <Th align="right" className="px-3 whitespace-nowrap">
-                  Liters
-                </Th>
-                <Th align="right" className="px-3 whitespace-nowrap">
-                  Fuel Cost
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_FUEL_LOGS.map((log) => (
-                <Tr key={log.id}>
-                  <Td mono className="px-3 whitespace-nowrap text-[13px] text-ink">
-                    {log.vehicle}
-                  </Td>
-                  <Td
-                    mono
-                    className="px-3 whitespace-nowrap text-[13px] text-muted"
-                  >
-                    {log.date}
-                  </Td>
-                  <Td
-                    align="right"
-                    mono
-                    className="px-3 whitespace-nowrap text-[13px] text-ink"
-                  >
-                    {log.litres}
-                  </Td>
-                  <Td
-                    align="right"
-                    mono
-                    className="px-3 whitespace-nowrap text-[13px] font-bold text-accent"
-                  >
-                    {log.cost}
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+
+          {fuelError ? (
+            <ErrorState error={fuelError} onRetry={() => refetchFuel()} />
+          ) : fuelLoading ? (
+            <TableSkeleton cols={4} />
+          ) : fuelLogs.length === 0 ? (
+            <EmptyState
+              title="No fuel logs yet"
+              hint="Fuel purchases logged against a vehicle will appear here."
+            />
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th className="px-3 whitespace-nowrap">Vehicle</Th>
+                  <Th className="px-3 whitespace-nowrap">Date</Th>
+                  <Th align="right" className="px-3 whitespace-nowrap">
+                    Liters
+                  </Th>
+                  <Th align="right" className="px-3 whitespace-nowrap">
+                    Fuel Cost
+                  </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {fuelLogs.map((log) => (
+                  <Tr key={log.id}>
+                    <Td
+                      mono
+                      className="px-3 whitespace-nowrap text-[13px] text-ink"
+                    >
+                      {log.vehicle?.registrationNumber ??
+                        log.vehicle?.model ??
+                        "—"}
+                    </Td>
+                    <Td
+                      mono
+                      className="px-3 whitespace-nowrap text-[13px] text-muted"
+                    >
+                      {formatDate(log.date)}
+                    </Td>
+                    <Td
+                      align="right"
+                      mono
+                      className="px-3 whitespace-nowrap text-[13px] text-ink"
+                    >
+                      {litres.format(log.liters ?? 0)} L
+                    </Td>
+                    <Td
+                      align="right"
+                      mono
+                      className="px-3 whitespace-nowrap text-[13px] font-bold text-accent"
+                    >
+                      {currencyCents.format(log.cost ?? 0)}
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
         </Panel>
 
         <Panel className="flex-1 overflow-hidden">

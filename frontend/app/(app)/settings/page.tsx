@@ -1,21 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Ban,
   Check,
   ChevronDown,
-  CircleCheck,
   Clock,
+  HardHat,
   KeyRound,
   Lock,
-  Pencil,
-  Plus,
   Save,
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
   Truck,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -24,13 +22,27 @@ import {
   Field,
   Input,
   PageHeader,
+  Select,
   Table,
   Td,
   Th,
   Tr,
 } from "@/components/ui";
-import { ErrorState, MockBadge, Skeleton } from "@/components/ui/async";
-import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
+import {
+  EmptyState,
+  ErrorState,
+  MockBadge,
+  Skeleton,
+  TableSkeleton,
+} from "@/components/ui/async";
+import { ApiError } from "@/lib/api/client";
+import {
+  useRoles,
+  useSettings,
+  useUpdateSettings,
+  useUpdateUserRole,
+  useUsers,
+} from "@/lib/api/hooks";
 
 /* ---------- local primitives (page-scoped) ---------- */
 
@@ -167,53 +179,138 @@ function SecurityCard({
 }
 
 /* ---------- RBAC ----------
-   There is no user/role API — no GET /users, no GET /roles, no role assignment.
-   This table therefore stays on mock data and is badged as such. */
+   The `Roles` table holds only an id and a name. Permissions are not data —
+   they live in the API's route guards — so there is no permission matrix to
+   render, and inventing one here would be a lie. What is real: the role list
+   (+ its user counts) and which user sits in which role. That is what we show. */
 
-type Role = {
-  name: string;
-  icon: React.ReactNode;
-  visibility: string;
-  ops: boolean;
-  financials: boolean;
+const ROLE_ICONS: Record<string, React.ReactNode> = {
+  "Fleet Manager": <ShieldCheck className="size-4" />,
+  Driver: <Truck className="size-4" />,
+  "Safety Officer": <HardHat className="size-4" />,
+  "Financial Analyst": <Wallet className="size-4" />,
 };
 
-const MOCK_ROLES: Role[] = [
-  {
-    name: "Fleet Manager",
-    icon: <ShieldCheck className="size-4" />,
-    visibility: "Full Depot-Level View",
-    ops: true,
-    financials: false,
-  },
-  {
-    name: "Dispatcher",
-    icon: <Truck className="size-4" />,
-    visibility: "Active Trip Queue Only",
-    ops: true,
-    financials: false,
-  },
-  {
-    name: "Safety Officer",
-    icon: <Users className="size-4" />,
-    visibility: "Incident & Driver Logs",
-    ops: false,
-    financials: false,
-  },
-  {
-    name: "Financial Analyst",
-    icon: <Wallet className="size-4" />,
-    visibility: "Audit & Expense Ledgers",
-    ops: false,
-    financials: true,
-  },
-];
+const roleIcon = (name: string) => ROLE_ICONS[name] ?? <Users className="size-4" />;
 
-function PermissionMark({ granted }: { granted: boolean }) {
-  return granted ? (
-    <CircleCheck className="mx-auto size-[18px] text-accent" />
-  ) : (
-    <Ban className="mx-auto size-[18px] text-muted opacity-40" />
+/** Placeholder option for a user the API reports with `role: null`. */
+const UNASSIGNED = "Unassigned";
+
+/**
+ * GET /users is Fleet Manager only. Everyone else gets a 403 — that is the
+ * access control doing its job, so it renders as a calm note, not an error.
+ */
+function UserAdmin({ roleNames }: { roleNames: string[] }) {
+  const { data, isLoading, error, refetch } = useUsers();
+  const updateRole = useUpdateUserRole();
+
+  const users = data ?? [];
+
+  if (error instanceof ApiError && error.status === 403) {
+    return (
+      <Card className="flex items-center gap-3 px-6 py-5">
+        <Lock className="size-4 shrink-0 text-muted" />
+        <p className="text-sm leading-5 text-muted">
+          User administration is restricted to Fleet Managers. The roles above
+          are visible to everyone; the people assigned to them are not.
+        </p>
+      </Card>
+    );
+  }
+
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+
+  return (
+    <Card className="overflow-hidden">
+      {isLoading ? (
+        <TableSkeleton cols={4} />
+      ) : users.length === 0 ? (
+        <EmptyState
+          title="No users yet"
+          hint="Accounts that register against this depot will appear here."
+        />
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              {/* px-2 + a w-36 select is what keeps all four columns inside the
+                  panel at 960px instead of pushing them into a scroll. */}
+              <Th className="px-2 whitespace-nowrap">Name</Th>
+              <Th className="px-2 whitespace-nowrap">Email</Th>
+              <Th className="px-2 whitespace-nowrap">Current Role</Th>
+              <Th align="right" className="px-2 whitespace-nowrap">
+                Reassign Role
+              </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => {
+              // One mutation serves every row, so `variables` says which row is
+              // the one actually in flight / failed.
+              const target = updateRole.variables?.id === u.id;
+              const pending = target && updateRole.isPending;
+              const failed = target && updateRole.isError;
+              const saved = target && updateRole.isSuccess;
+              const current = u.role?.name ?? UNASSIGNED;
+              // A failed reassignment leaves the select on the server's value —
+              // it is controlled by `current`, so it snaps back on its own.
+              const options = u.role ? roleNames : [UNASSIGNED, ...roleNames];
+
+              return (
+                <Tr key={u.id}>
+                  {/* The one column allowed to wrap — it absorbs the squeeze at
+                      960px so the select never leaves the panel. */}
+                  <Td className="px-2 text-sm font-bold text-ink">{u.name}</Td>
+                  <Td className="px-2 whitespace-nowrap text-sm text-muted">
+                    {u.email}
+                  </Td>
+                  <Td className="px-2">
+                    <span className="flex items-center gap-2 whitespace-nowrap text-sm text-ink">
+                      <span className="text-accent">{roleIcon(current)}</span>
+                      {current}
+                    </span>
+                  </Td>
+                  <Td align="right" className="px-2">
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Select
+                        aria-label={`Role for ${u.name}`}
+                        options={options}
+                        value={current}
+                        disabled={pending || roleNames.length === 0}
+                        onChange={(e) => {
+                          const roleName = e.target.value;
+                          if (roleName === UNASSIGNED || roleName === current)
+                            return;
+                          updateRole.mutate({ id: u.id, roleName });
+                        }}
+                        className="w-36 disabled:opacity-60"
+                      />
+                      {pending && (
+                        <span className="text-xs text-muted">Saving…</span>
+                      )}
+                      {saved && (
+                        <span className="text-xs text-success">
+                          Role updated.
+                        </span>
+                      )}
+                      {/* e.g. the API refuses to demote the last Fleet Manager —
+                          show its reason verbatim rather than a generic failure. */}
+                      {failed && (
+                        <span className="max-w-[280px] text-right text-xs leading-4 text-danger">
+                          {updateRole.error instanceof Error
+                            ? updateRole.error.message
+                            : "Couldn't update this role."}
+                        </span>
+                      )}
+                    </div>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      )}
+    </Card>
   );
 }
 
@@ -232,6 +329,17 @@ const DISTANCE_UNIT = "DISTANCE_UNIT";
 export default function SettingsPage() {
   const { data, isLoading, error, refetch } = useSettings();
   const updateSettings = useUpdateSettings();
+
+  const {
+    data: rolesData,
+    isLoading: rolesLoading,
+    error: rolesError,
+    refetch: refetchRoles,
+  } = useRoles();
+
+  const roles = useMemo(() => rolesData ?? [], [rolesData]);
+  // The assignable roles are whatever the API says they are — not a hardcoded list.
+  const roleNames = useMemo(() => roles.map((r) => r.name), [roles]);
 
   // Edits live in a draft overlay; anything untouched falls through to the
   // server value, so no effect is needed to seed the form.
@@ -370,73 +478,75 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {/* Section 2 — RBAC (no endpoint; mock) */}
+      {/* Section 2 — RBAC (live: GET /roles, GET+PATCH /users) */}
       <section className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <SectionIntro
-            icon={<KeyRound className="size-5" />}
-            title="Role-Based Access Control (RBAC)"
-            badge={<MockBadge reason="No user/role API yet" />}
-            lines={[
-              "Manage granular permissions and visibility layers across the organization.",
-            ]}
-          />
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded bg-surface-4 px-4 py-2 text-base text-ink transition hover:opacity-90"
-          >
-            <Plus className="size-3.5" strokeWidth={3} />
-            Define New Role
-          </button>
+        <SectionIntro
+          icon={<KeyRound className="size-5" />}
+          title="Role-Based Access Control (RBAC)"
+          lines={[
+            "Roles are defined by the API and enforced in its route guards — they are not",
+            "an editable permission matrix. Move a person between roles to change their access.",
+          ]}
+        />
+
+        {rolesError ? (
+          <ErrorState error={rolesError} onRetry={() => refetchRoles()} />
+        ) : (
+          <Card className="overflow-hidden">
+            {rolesLoading ? (
+              <TableSkeleton cols={2} rows={4} />
+            ) : roles.length === 0 ? (
+              <EmptyState
+                title="No roles defined"
+                hint="The API returned an empty role list."
+              />
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th className="px-3 whitespace-nowrap">Role Name</Th>
+                    <Th align="right" className="px-3 whitespace-nowrap">
+                      Users
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roles.map((role) => (
+                    <Tr key={role.id}>
+                      <Td className="px-3">
+                        <span className="flex items-center gap-3">
+                          <span className="text-accent">
+                            {roleIcon(role.name)}
+                          </span>
+                          <span className="whitespace-nowrap font-bold text-ink">
+                            {role.name}
+                          </span>
+                        </span>
+                      </Td>
+                      <Td align="right" mono className="px-3 text-ink">
+                        {role.userCount}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
+        )}
+
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-2 text-accent">
+            <UserCog className="size-4" />
+            <h3 className="text-base font-bold leading-6">
+              Users &amp; Assignments
+            </h3>
+          </div>
+          <span className="rounded bg-surface-2 px-2 py-1 text-xs text-muted">
+            Fleet Managers only
+          </span>
         </div>
 
-        <Card className="overflow-hidden">
-          <Table>
-            <thead>
-              <tr>
-                <Th>Role Name</Th>
-                <Th>Data Visibility</Th>
-                <Th>Ops Control</Th>
-                <Th>Financials</Th>
-                <Th>Status</Th>
-                <Th align="right">Action</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_ROLES.map((role) => (
-                <Tr key={role.name}>
-                  <Td>
-                    <span className="flex items-center gap-3">
-                      <span className="text-accent">{role.icon}</span>
-                      <span className="font-bold text-ink">{role.name}</span>
-                    </span>
-                  </Td>
-                  <Td>{role.visibility}</Td>
-                  <Td className="text-center">
-                    <PermissionMark granted={role.ops} />
-                  </Td>
-                  <Td className="text-center">
-                    <PermissionMark granted={role.financials} />
-                  </Td>
-                  <Td>
-                    <span className="label-eyebrow inline-flex rounded-full bg-accent-dim px-3 py-0.5 font-black text-accent">
-                      Active
-                    </span>
-                  </Td>
-                  <Td align="right">
-                    <button
-                      type="button"
-                      aria-label={`Edit ${role.name}`}
-                      className="text-muted transition hover:text-accent"
-                    >
-                      <Pencil className="ml-auto size-4" />
-                    </button>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
+        <UserAdmin roleNames={roleNames} />
       </section>
 
       {/* Section 3 — Security & Auth (no endpoints; inert local state) */}

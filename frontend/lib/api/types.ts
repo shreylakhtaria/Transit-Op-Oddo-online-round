@@ -106,7 +106,25 @@ export type FuelLog = {
   tripId?: number | null;
   liters: number;
   cost: number;
+  /** YYYY-MM-DD */
   date: string;
+  vehicle?: Pick<Vehicle, "id" | "registrationNumber" | "model">;
+};
+
+/** GET /roles — readable by any authenticated user. */
+export type Role = {
+  id: number;
+  name: string;
+  userCount: number;
+};
+
+/** GET /users — Fleet Manager only. The API never returns the password hash. */
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: { id: number; name: string } | null;
+  createdAt: string;
 };
 
 /** GET /settings — a flat string key/value map, not a typed object. */
