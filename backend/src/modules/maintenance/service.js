@@ -1,4 +1,5 @@
 import { MaintenanceLog, Vehicle, Expense, sequelize } from '../../models/index.js';
+import { paginate } from '../../utils/pagination.js';
 
 export class MaintenanceService {
   static async startMaintenance({ vehicleId, description, cost, startDate }) {
@@ -71,13 +72,13 @@ export class MaintenanceService {
     }
   }
 
-  static async getAllLogs(filters = {}) {
+  static async getAllLogs(filters = {}, pagination = null) {
     const where = {};
     if (filters.status) where.status = filters.status;
-    return await MaintenanceLog.findAll({
+    return await paginate(MaintenanceLog, {
       where,
       include: [{ model: Vehicle, as: 'vehicle', attributes: ['registrationNumber', 'model'] }],
       order: [['createdAt', 'DESC']]
-    });
+    }, pagination);
   }
 }

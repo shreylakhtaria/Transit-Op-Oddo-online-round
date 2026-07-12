@@ -1,5 +1,6 @@
 import { Vehicle, Driver, User, Role, VehicleDocument } from '../../models/index.js';
 import { Op } from 'sequelize';
+import { paginate } from '../../utils/pagination.js';
 
 export class FleetService {
   // --- Vehicle CRUD ---
@@ -12,11 +13,11 @@ export class FleetService {
     return await Vehicle.create(data);
   }
 
-  static async getAllVehicles(filters = {}) {
+  static async getAllVehicles(filters = {}, pagination = null) {
     const where = {};
     if (filters.type) where.type = filters.type;
     if (filters.status) where.status = filters.status;
-    return await Vehicle.findAll({ where, order: [['createdAt', 'DESC']] });
+    return await paginate(Vehicle, { where, order: [['createdAt', 'DESC']] }, pagination);
   }
 
   static async getVehicleById(id) {
@@ -55,14 +56,14 @@ export class FleetService {
     return await Driver.create(data);
   }
 
-  static async getAllDrivers(filters = {}) {
+  static async getAllDrivers(filters = {}, pagination = null) {
     const where = {};
     if (filters.status) where.status = filters.status;
-    return await Driver.findAll({ 
-      where, 
+    return await paginate(Driver, {
+      where,
       include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
-      order: [['createdAt', 'DESC']] 
-    });
+      order: [['createdAt', 'DESC']]
+    }, pagination);
   }
 
   static async getDriverById(id) {

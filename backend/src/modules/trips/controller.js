@@ -1,5 +1,6 @@
 import { TripService } from './service.js';
 import { createTripSchema, completeTripSchema } from './validators.js';
+import { parsePagination } from '../../utils/pagination.js';
 
 export class TripController {
   static async createTrip(req, res, next) {
@@ -18,9 +19,13 @@ export class TripController {
   static async getAllTrips(req, res, next) {
     try {
       const filters = { status: req.query.status };
-      const trips = await TripService.getAllTrips(filters);
+      const pagination = parsePagination(req.query);
+      const trips = await TripService.getAllTrips(filters, pagination);
       return res.status(200).json(trips);
     } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
       next(error);
     }
   }

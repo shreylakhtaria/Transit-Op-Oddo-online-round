@@ -1,5 +1,6 @@
 import { FleetService } from './service.js';
 import { vehicleSchema, driverSchema, vehicleDocumentSchema } from './validators.js';
+import { parsePagination } from '../../utils/pagination.js';
 
 export class FleetController {
   // --- Vehicles ---
@@ -23,9 +24,13 @@ export class FleetController {
         type: req.query.type,
         status: req.query.status
       };
-      const vehicles = await FleetService.getAllVehicles(filters);
+      const pagination = parsePagination(req.query);
+      const vehicles = await FleetService.getAllVehicles(filters, pagination);
       return res.status(200).json(vehicles);
     } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
       next(error);
     }
   }
@@ -82,9 +87,13 @@ export class FleetController {
       const filters = {
         status: req.query.status
       };
-      const drivers = await FleetService.getAllDrivers(filters);
+      const pagination = parsePagination(req.query);
+      const drivers = await FleetService.getAllDrivers(filters, pagination);
       return res.status(200).json(drivers);
     } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
       next(error);
     }
   }

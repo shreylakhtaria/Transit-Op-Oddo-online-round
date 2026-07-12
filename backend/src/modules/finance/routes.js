@@ -8,6 +8,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/expenses', FinanceController.getAllExpenses);
+router.get('/expenses/fuel', FinanceController.getFuelLogs);
 router.get('/expenses/vehicle/:vehicleId', FinanceController.getVehicleOperationalCost);
 
 // Expense / Fuel logging is restricted to Fleet Managers and Financial Analysts

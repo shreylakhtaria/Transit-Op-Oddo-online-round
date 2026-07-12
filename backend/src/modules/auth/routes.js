@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { AuthController } from './controller.js';
 import { requireAuth } from '../../middlewares/authMiddleware.js';
+import { requireRole } from '../../middlewares/roleMiddleware.js';
 
 const router = Router();
 
@@ -14,7 +15,11 @@ const authLimiter = rateLimit({
   legacyHeaders: false, 
 });
 
-router.post('/register', authLimiter, AuthController.register);
+// Registration mints accounts and accepts a client-supplied `roleName` (including
+// 'Fleet Manager'), so it must never be reachable anonymously — that would let any caller
+// grant themselves admin. Only an authenticated Fleet Manager may create users; the
+// initial accounts come from the database seeders, so there is no bootstrap problem.
+router.post('/register', authLimiter, requireAuth, requireRole(['Fleet Manager']), AuthController.register);
 router.post('/login', authLimiter, AuthController.login);
 router.post('/verify-otp', authLimiter, AuthController.verifyOtp);
 router.post('/refresh', AuthController.refresh);
