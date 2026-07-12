@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AtSign,
   Eye,
@@ -329,11 +330,13 @@ export default function LoginPage() {
           </span>
         </div>
         <nav className="flex items-center gap-6">
-          {["Privacy", "Security Audit", "v2.4.1"].map((link) => (
-            <a key={link} href="#" className="label-field hover:text-ink">
-              {link}
-            </a>
-          ))}
+          <Link href="/privacy" className="label-field hover:text-ink">
+            Privacy Policy
+          </Link>
+          <Link href="/security-audit" className="label-field hover:text-ink">
+            Security Audit
+          </Link>
+          <span className="label-field">v2.4.1</span>
         </nav>
       </footer>
     </div>
