@@ -308,9 +308,9 @@ export default function LoginPage() {
 
             <p className="pt-12 text-center text-sm text-muted">
               Trouble logging in?{" "}
-              <a href="#" className="text-accent hover:underline">
+              <Link href="/support" className="text-accent hover:underline">
                 Contact TransitOps Support
-              </a>
+              </Link>
             </p>
           </div>
         </section>
