@@ -10,6 +10,7 @@ import { FuelLog } from './FuelLog.js';
 import { Expense } from './Expense.js';
 import { Otp } from './Otp.js';
 import { VehicleDocument } from './VehicleDocument.js';
+import { Setting } from './Setting.js';
 
 // --- Associations ---
 
@@ -73,5 +74,6 @@ export {
   FuelLog,
   Expense,
   Otp,
-  VehicleDocument
+  VehicleDocument,
+  Setting
 };

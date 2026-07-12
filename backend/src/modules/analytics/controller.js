@@ -23,5 +23,22 @@ export class AnalyticsController {
     } catch (error) {
       next(error);
     }
+  static async getMonthlyRevenue(req, res, next) {
+    try {
+      const data = await AnalyticsService.getMonthlyRevenue();
+      return res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getTopCostliestVehicles(req, res, next) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 5;
+      const data = await AnalyticsService.getTopCostliestVehicles(limit);
+      return res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
   }
 }

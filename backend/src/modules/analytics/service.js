@@ -81,6 +81,16 @@ export class AnalyticsService {
       });
     }
 
+    // Fetch recent trips
+    const recentTrips = await Trip.findAll({
+      limit: 5,
+      order: [['createdAt', 'DESC']],
+      include: [
+        { model: Vehicle, as: 'vehicle', attributes: ['registrationNumber', 'model'] },
+        { model: Driver, as: 'driver', attributes: ['name'] }
+      ]
+    });
+
     return {
       kpis: {
         activeVehicles,
@@ -91,7 +101,8 @@ export class AnalyticsService {
         driversOnDuty,
         fleetUtilization // number (percentage value)
       },
-      chartData
+      chartData,
+      recentTrips
     };
   }
 
@@ -117,5 +128,43 @@ export class AnalyticsService {
     });
 
     return rows.map(r => r.join(',')).join('\n');
+  }
+
+  static async getMonthlyRevenue() {
+    // Fetch completed trips
+    const completedTrips = await Trip.findAll({
+      where: { status: 'Completed' },
+      attributes: ['completionDate', 'revenue']
+    });
+
+    const revenueMap = {};
+
+    completedTrips.forEach(trip => {
+      if (!trip.completionDate) return;
+      const date = new Date(trip.completionDate);
+      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!revenueMap[monthYear]) {
+        revenueMap[monthYear] = 0;
+      }
+      revenueMap[monthYear] += trip.revenue;
+    });
+
+    // Convert map to sorted array
+    const result = Object.keys(revenueMap).map(month => ({
+      month,
+      revenue: revenueMap[month]
+    })).sort((a, b) => a.month.localeCompare(b.month));
+
+    return result;
+  }
+
+  static async getTopCostliestVehicles(limit = 5) {
+    const stats = await this.getDashboardStats();
+    
+    // Sort chartData by totalOperationalCost in descending order
+    const sorted = stats.chartData.sort((a, b) => b.totalOperationalCost - a.totalOperationalCost);
+    
+    return sorted.slice(0, limit);
   }
 }
