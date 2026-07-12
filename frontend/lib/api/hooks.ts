@@ -111,7 +111,10 @@ export function useCreateVehicle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<Vehicle>) => api.post<Vehicle>("/vehicles", body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.vehicles }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 
@@ -119,7 +122,10 @@ export function useCreateDriver() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<Driver>) => api.post<Driver>("/drivers", body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.drivers }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.drivers });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 
@@ -131,6 +137,8 @@ export function useCreateMaintenance() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.maintenance });
       qc.invalidateQueries({ queryKey: keys.vehicles });
+      qc.invalidateQueries({ queryKey: keys.expenses });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -153,6 +161,7 @@ export function useCreateTrip() {
     mutationFn: (body: Partial<Trip>) => api.post<Trip>("/trips", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.trips });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -165,6 +174,7 @@ export function useDispatchTrip() {
       qc.invalidateQueries({ queryKey: keys.trips });
       qc.invalidateQueries({ queryKey: keys.vehicles });
       qc.invalidateQueries({ queryKey: keys.drivers });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -180,7 +190,7 @@ export function useCompleteTrip() {
       qc.invalidateQueries({ queryKey: keys.drivers });
       qc.invalidateQueries({ queryKey: keys.expenses });
       qc.invalidateQueries({ queryKey: keys.fuelLogs });
-      qc.invalidateQueries({ queryKey: keys.dashboard });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -193,6 +203,7 @@ export function useCancelTrip() {
       qc.invalidateQueries({ queryKey: keys.trips });
       qc.invalidateQueries({ queryKey: keys.vehicles });
       qc.invalidateQueries({ queryKey: keys.drivers });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -205,7 +216,7 @@ export function useCloseMaintenance() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.maintenance });
       qc.invalidateQueries({ queryKey: keys.vehicles });
-      qc.invalidateQueries({ queryKey: keys.dashboard });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -218,7 +229,7 @@ export function useCreateFuelLog() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.fuelLogs });
       qc.invalidateQueries({ queryKey: keys.expenses });
-      qc.invalidateQueries({ queryKey: keys.dashboard });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -230,7 +241,7 @@ export function useCreateExpense() {
       api.post<Expense>("/expenses/other", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.expenses });
-      qc.invalidateQueries({ queryKey: keys.dashboard });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
