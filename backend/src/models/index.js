@@ -9,6 +9,7 @@ import { MaintenanceLog } from './MaintenanceLog.js';
 import { FuelLog } from './FuelLog.js';
 import { Expense } from './Expense.js';
 import { Otp } from './Otp.js';
+import { VehicleDocument } from './VehicleDocument.js';
 
 // --- Associations ---
 
@@ -56,6 +57,10 @@ Expense.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' });
 Trip.hasMany(Expense, { foreignKey: 'tripId', as: 'expenses' });
 Expense.belongsTo(Trip, { foreignKey: 'tripId', as: 'trip' });
 
+// Vehicle <-> VehicleDocument
+Vehicle.hasMany(VehicleDocument, { foreignKey: 'vehicleId', as: 'documents' });
+VehicleDocument.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' });
+
 export {
   sequelize,
   Role,
@@ -67,5 +72,6 @@ export {
   MaintenanceLog,
   FuelLog,
   Expense,
-  Otp
+  Otp,
+  VehicleDocument
 };

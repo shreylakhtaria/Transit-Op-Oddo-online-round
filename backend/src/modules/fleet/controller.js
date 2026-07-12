@@ -1,5 +1,5 @@
 import { FleetService } from './service.js';
-import { vehicleSchema, driverSchema } from './validators.js';
+import { vehicleSchema, driverSchema, vehicleDocumentSchema } from './validators.js';
 
 export class FleetController {
   // --- Vehicles ---
@@ -126,6 +126,39 @@ export class FleetController {
       return res.status(200).json(result);
     } catch (error) {
       next(error);
+    }
+  }
+
+  // --- Vehicle Document Management ---
+
+  static async addVehicleDocument(req, res, next) {
+    try {
+      const parsedData = vehicleDocumentSchema.parse(req.body);
+      const document = await FleetService.addVehicleDocument(req.params.id, parsedData);
+      return res.status(201).json(document);
+    } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async getVehicleDocuments(req, res, next) {
+    try {
+      const documents = await FleetService.getVehicleDocuments(req.params.id);
+      return res.status(200).json(documents);
+    } catch (error) {
+      return res.status(404).json({ error: error.message });
+    }
+  }
+
+  static async deleteVehicleDocument(req, res, next) {
+    try {
+      const result = await FleetService.deleteVehicleDocument(req.params.docId);
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(404).json({ error: error.message });
     }
   }
 }
