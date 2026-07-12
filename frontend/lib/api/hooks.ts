@@ -5,7 +5,14 @@ import { api } from "./client";
 import { ApiError } from "./client";
 import type {
   AdminUser,
+  CompleteTripBody,
+  CreateDriverBody,
   CreateMaintenanceBody,
+  CreateTripBody,
+  CreateVehicleBody,
+  DispatchableAssets,
+  LogExpenseBody,
+  LogFuelBody,
   DashboardData,
   Driver,
   Expense,
@@ -26,6 +33,7 @@ export const keys = {
   maintenance: ["maintenance"] as const,
   expenses: ["expenses"] as const,
   fuelLogs: ["expenses", "fuel"] as const,
+  dispatchable: ["trips", "dispatchable-assets"] as const,
   roles: ["roles"] as const,
   users: ["users"] as const,
   settings: ["settings"] as const,
@@ -107,21 +115,114 @@ export const useTopCostliest = (limit = 5) =>
     queryFn: () => api.get<VehicleCostRow[]>(`/analytics/top-costliest?limit=${limit}`),
   });
 
-export function useCreateVehicle() {
+/**
+ * Anything that changes fleet state can ripple into the dashboard and analytics
+ * (a new vehicle changes the counts; completing a trip changes revenue), so mutations
+ * invalidate those too rather than leaving stale numbers on screen.
+ */
+function useFleetMutation<TBody, TResult>(
+  fn: (body: TBody) => Promise<TResult>,
+  touches: readonly (readonly string[])[],
+) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: Partial<Vehicle>) => api.post<Vehicle>("/vehicles", body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.vehicles }),
+    mutationFn: fn,
+    onSuccess: () => {
+      for (const key of touches) qc.invalidateQueries({ queryKey: key });
+      qc.invalidateQueries({ queryKey: keys.dashboard });
+      qc.invalidateQueries({ queryKey: keys.monthlyRevenue });
+      qc.invalidateQueries({ queryKey: keys.topCostliest });
+    },
   });
 }
 
-export function useCreateDriver() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: Partial<Driver>) => api.post<Driver>("/drivers", body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.drivers }),
+export const useCreateVehicle = () =>
+  useFleetMutation(
+    (body: CreateVehicleBody) => api.post<Vehicle>("/vehicles", body),
+    [keys.vehicles],
+  );
+
+export const useUpdateVehicle = () =>
+  useFleetMutation(
+    ({ id, ...body }: { id: number } & Partial<CreateVehicleBody>) =>
+      api.put<Vehicle>(`/vehicles/${id}`, body),
+    [keys.vehicles],
+  );
+
+export const useDeleteVehicle = () =>
+  useFleetMutation(
+    (id: number) => api.delete<void>(`/vehicles/${id}`),
+    [keys.vehicles],
+  );
+
+export const useCreateDriver = () =>
+  useFleetMutation(
+    (body: CreateDriverBody) => api.post<Driver>("/drivers", body),
+    [keys.drivers],
+  );
+
+export const useUpdateDriver = () =>
+  useFleetMutation(
+    ({ id, ...body }: { id: number } & Partial<CreateDriverBody>) =>
+      api.put<Driver>(`/drivers/${id}`, body),
+    [keys.drivers],
+  );
+
+export const useDeleteDriver = () =>
+  useFleetMutation(
+    (id: number) => api.delete<void>(`/drivers/${id}`),
+    [keys.drivers],
+  );
+
+/** Vehicles/drivers eligible for a new trip — the API filters out In Shop, On Trip, etc. */
+export const useDispatchableAssets = () =>
+  useQuery({
+    queryKey: keys.dispatchable,
+    queryFn: () => api.get<DispatchableAssets>("/trips/dispatchable-assets"),
   });
-}
+
+export const useCreateTrip = () =>
+  useFleetMutation(
+    (body: CreateTripBody) => api.post<Trip>("/trips", body),
+    [keys.trips, keys.vehicles, keys.drivers, keys.dispatchable],
+  );
+
+export const useDispatchTrip = () =>
+  useFleetMutation(
+    (id: number) => api.post<Trip>(`/trips/${id}/dispatch`),
+    [keys.trips, keys.vehicles, keys.drivers, keys.dispatchable],
+  );
+
+export const useCompleteTrip = () =>
+  useFleetMutation(
+    ({ id, ...body }: { id: number } & CompleteTripBody) =>
+      api.post<Trip>(`/trips/${id}/complete`, body),
+    [keys.trips, keys.vehicles, keys.drivers, keys.dispatchable, keys.expenses],
+  );
+
+export const useCancelTrip = () =>
+  useFleetMutation(
+    (id: number) => api.post<Trip>(`/trips/${id}/cancel`),
+    [keys.trips, keys.vehicles, keys.drivers, keys.dispatchable],
+  );
+
+export const useCloseMaintenance = () =>
+  useFleetMutation(
+    (id: number) => api.post<MaintenanceLog>(`/maintenance/${id}/close`),
+    [keys.maintenance, keys.vehicles],
+  );
+
+export const useLogFuel = () =>
+  useFleetMutation(
+    (body: LogFuelBody) => api.post<FuelLog>("/expenses/fuel", body),
+    [keys.fuelLogs, keys.expenses],
+  );
+
+export const useLogExpense = () =>
+  useFleetMutation(
+    (body: LogExpenseBody) => api.post<Expense>("/expenses/other", body),
+    [keys.expenses],
+  );
 
 export function useCreateMaintenance() {
   const qc = useQueryClient();

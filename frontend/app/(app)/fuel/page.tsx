@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   BarChart3,
   Download,
   Fuel,
-  ListFilter,
+  Loader2,
   Plus,
   ReceiptText,
   Sparkles,
@@ -14,20 +14,34 @@ import {
 } from "lucide-react";
 import {
   Button,
+  Field,
+  Input,
   Panel,
   PageHeader,
+  Select,
   Table,
   Td,
   Th,
   Tr,
 } from "@/components/ui";
+import { Modal, ModalActions } from "@/components/ui/modal";
 import {
   EmptyState,
   ErrorState,
   Skeleton,
   TableSkeleton,
 } from "@/components/ui/async";
-import { useDashboard, useExpenses, useFuelLogs } from "@/lib/api/hooks";
+import { downloadCsv } from "@/lib/api/client";
+import {
+  useDashboard,
+  useExpenses,
+  useFuelLogs,
+  useLogExpense,
+  useLogFuel,
+  useTrips,
+  useVehicles,
+} from "@/lib/api/hooks";
+import type { ExpenseCategory } from "@/lib/api/types";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -105,7 +119,324 @@ function StatTileSkeleton() {
   );
 }
 
+/* ------------------------------------------------------------------ dialogs */
+
+const SELECT_VEHICLE = "Select a vehicle";
+const NO_TRIP = "None";
+const CATEGORIES: ExpenseCategory[] = ["Fuel", "Maintenance", "Toll", "Other"];
+
+/**
+ * Today as YYYY-MM-DD in the *user's* zone. `toISOString().slice(0, 10)` is UTC's
+ * date, which is already tomorrow (or still yesterday) depending on the offset —
+ * the same trap `formatDate` above sidesteps on the way out.
+ */
+function todayIso() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * Vehicle/trip pickers. The <Select> primitive keys options by their own text, so
+ * the ids ride in a label→id map rather than in the option values. Both queries are
+ * shared with the tables through the react-query cache, so opening a dialog is free.
+ */
+function usePickers() {
+  const vehicles = useVehicles();
+  const trips = useTrips();
+
+  const vehicleIds = useMemo(
+    () =>
+      new Map<string, number>(
+        (vehicles.data ?? []).map((v) => [
+          `${v.registrationNumber} · ${v.model}`,
+          v.id,
+        ]),
+      ),
+    [vehicles.data],
+  );
+
+  const tripIds = useMemo(
+    () =>
+      new Map<string, number>(
+        (trips.data ?? []).map((t) => [
+          `#${t.id} · ${t.source} → ${t.destination}`,
+          t.id,
+        ]),
+      ),
+    [trips.data],
+  );
+
+  return { vehicleIds, tripIds, vehiclesError: vehicles.error };
+}
+
+/** Without vehicles there is nothing to log against — say why, don't just sit empty. */
+function VehicleLoadError({ error }: { error: unknown }) {
+  if (!error) return null;
+  return (
+    <span className="text-xs text-danger">
+      {error instanceof Error ? error.message : "Couldn't load vehicles."}
+    </span>
+  );
+}
+
+function LogFuelModal({ onClose }: { onClose: () => void }) {
+  const { vehicleIds, tripIds, vehiclesError } = usePickers();
+  const logFuel = useLogFuel();
+
+  const [vehicle, setVehicle] = useState(SELECT_VEHICLE);
+  const [trip, setTrip] = useState(NO_TRIP);
+  const [liters, setLiters] = useState("");
+  const [cost, setCost] = useState("");
+  const [date, setDate] = useState(todayIso);
+
+  const vehicleId = vehicleIds.get(vehicle);
+  const tripId = tripIds.get(trip) ?? null;
+  const litersNum = Number(liters);
+  const costNum = Number(cost);
+
+  const valid =
+    vehicleId !== undefined &&
+    liters !== "" &&
+    cost !== "" &&
+    Number.isFinite(litersNum) &&
+    Number.isFinite(costNum) &&
+    date !== "";
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!valid || vehicleId === undefined) return;
+    // Numbers go over the wire as numbers — the API's validators reject strings.
+    logFuel.mutate(
+      { vehicleId, tripId, liters: litersNum, cost: costNum, date },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Log Fuel"
+      subtitle="Record a fuel purchase against a vehicle."
+      icon={<Fuel className="size-5" />}
+    >
+      <form onSubmit={onSubmit}>
+        <div className="flex flex-col gap-5">
+          <Field label="Vehicle">
+            <Select
+              options={[SELECT_VEHICLE, ...vehicleIds.keys()]}
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+              className="font-mono"
+            />
+            <VehicleLoadError error={vehiclesError} />
+          </Field>
+
+          <Field label="Trip (optional)">
+            <Select
+              options={[NO_TRIP, ...tripIds.keys()]}
+              value={trip}
+              onChange={(e) => setTrip(e.target.value)}
+              className="font-mono"
+            />
+          </Field>
+
+          <div className="flex gap-4">
+            <Field label="Liters" className="flex-1">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                placeholder="120"
+                value={liters}
+                onChange={(e) => setLiters(e.target.value)}
+                className="font-mono"
+              />
+            </Field>
+
+            <Field label="Cost (USD)" className="flex-1">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                placeholder="180.50"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                className="font-mono"
+              />
+            </Field>
+          </div>
+
+          <Field label="Date">
+            <Input
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="font-mono"
+            />
+          </Field>
+        </div>
+
+        <ModalActions
+          onCancel={onClose}
+          submitLabel="Log Fuel"
+          pending={logFuel.isPending}
+          error={logFuel.error}
+          disabled={!valid}
+        />
+      </form>
+    </Modal>
+  );
+}
+
+function AddExpenseModal({ onClose }: { onClose: () => void }) {
+  const { vehicleIds, tripIds, vehiclesError } = usePickers();
+  const logExpense = useLogExpense();
+
+  const [vehicle, setVehicle] = useState(SELECT_VEHICLE);
+  const [trip, setTrip] = useState(NO_TRIP);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState<ExpenseCategory>("Other");
+  const [date, setDate] = useState(todayIso);
+
+  const vehicleId = vehicleIds.get(vehicle);
+  const tripId = tripIds.get(trip) ?? null;
+  const amountNum = Number(amount);
+
+  const valid =
+    vehicleId !== undefined &&
+    description.trim() !== "" &&
+    amount !== "" &&
+    Number.isFinite(amountNum) &&
+    date !== "";
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!valid || vehicleId === undefined) return;
+    logExpense.mutate(
+      {
+        vehicleId,
+        tripId,
+        description: description.trim(),
+        amount: amountNum,
+        category,
+        date,
+      },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Add Expense"
+      subtitle="Log a toll, permit or other operational cost."
+      icon={<ReceiptText className="size-5" />}
+    >
+      <form onSubmit={onSubmit}>
+        <div className="flex flex-col gap-5">
+          <Field label="Vehicle">
+            <Select
+              options={[SELECT_VEHICLE, ...vehicleIds.keys()]}
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+              className="font-mono"
+            />
+            <VehicleLoadError error={vehiclesError} />
+          </Field>
+
+          <Field label="Trip (optional)">
+            <Select
+              options={[NO_TRIP, ...tripIds.keys()]}
+              value={trip}
+              onChange={(e) => setTrip(e.target.value)}
+              className="font-mono"
+            />
+          </Field>
+
+          <Field label="Description">
+            <Input
+              required
+              placeholder="Highway toll — NH48"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+
+          <div className="flex gap-4">
+            <Field label="Category" className="flex-1">
+              <Select
+                options={CATEGORIES}
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value as ExpenseCategory)
+                }
+              />
+            </Field>
+
+            <Field label="Amount (USD)" className="flex-1">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                placeholder="45.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="font-mono"
+              />
+            </Field>
+          </div>
+
+          <Field label="Date">
+            <Input
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="font-mono"
+            />
+          </Field>
+        </div>
+
+        <ModalActions
+          onCancel={onClose}
+          submitLabel="Add Expense"
+          pending={logExpense.isPending}
+          error={logExpense.error}
+          disabled={!valid}
+        />
+      </form>
+    </Modal>
+  );
+}
+
 export default function FuelPage() {
+  const [dialog, setDialog] = useState<"fuel" | "expense" | null>(null);
+
+  // The export endpoint is bearer-authenticated — an <a href> would just 401, so the
+  // CSV is fetched with the token and handed to the browser as a blob.
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function onExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadCsv("/analytics/export/csv", "transitops-export.csv");
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const {
     data: dashboard,
     isLoading: dashboardLoading,
@@ -156,27 +487,44 @@ export default function FuelPage() {
         title="Fuel & Expenses"
         subtitle="Real-time expenditure tracking and operational cost analysis."
         action={
-          <div className="flex items-center gap-3">
-            <Button
-              icon={<Plus className="size-3.5" strokeWidth={3} />}
-              className="px-5 py-2.5 text-sm"
-            >
-              Log Fuel
-            </Button>
-            <Button
-              variant="outline"
-              icon={<ReceiptText className="size-4" />}
-              className="px-5 py-2.5 text-sm"
-            >
-              Add Expense
-            </Button>
-            <Button
-              variant="outline"
-              icon={<Download className="size-4" />}
-              className="border-transparent bg-surface-3 px-5 py-2.5 text-sm"
-            >
-              Export CSV
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-3">
+              <Button
+                icon={<Plus className="size-3.5" strokeWidth={3} />}
+                className="px-5 py-2.5 text-sm"
+                onClick={() => setDialog("fuel")}
+              >
+                Log Fuel
+              </Button>
+              <Button
+                variant="outline"
+                icon={<ReceiptText className="size-4" />}
+                className="px-5 py-2.5 text-sm"
+                onClick={() => setDialog("expense")}
+              >
+                Add Expense
+              </Button>
+              <Button
+                variant="outline"
+                icon={
+                  exporting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )
+                }
+                className="border-transparent bg-surface-3 px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onExport}
+                disabled={exporting}
+              >
+                {exporting ? "Exporting…" : "Export CSV"}
+              </Button>
+            </div>
+            {exportError && (
+              <p className="max-w-sm text-right text-xs text-danger">
+                {exportError}
+              </p>
+            )}
           </div>
         }
       />
@@ -313,13 +661,8 @@ export default function FuelPage() {
               <Wallet className="size-4 text-accent" />
               <h2 className="text-xl font-semibold text-ink">Other Expenses</h2>
             </div>
-            <button
-              type="button"
-              className="flex size-8 items-center justify-center rounded border border-line text-muted transition hover:text-ink"
-              aria-label="Filter expenses"
-            >
-              <ListFilter className="size-4" />
-            </button>
+            {/* No filter control here: GET /expenses takes no filter parameter, so the
+                icon would be a dead affordance. */}
           </div>
 
           {expensesError ? (
@@ -418,6 +761,12 @@ export default function FuelPage() {
           </div>
         </div>
       </section>
+
+      {/* Mounted only while open, so each dialog starts on a clean form + mutation. */}
+      {dialog === "fuel" && <LogFuelModal onClose={() => setDialog(null)} />}
+      {dialog === "expense" && (
+        <AddExpenseModal onClose={() => setDialog(null)} />
+      )}
     </>
   );
 }

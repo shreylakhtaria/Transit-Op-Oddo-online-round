@@ -86,6 +86,71 @@ export type CreateMaintenanceBody = {
   startDate: string;
 };
 
+/* ── Request bodies. Every field below is copied from the backend's Zod validators,
+      not from the design. Numbers must be sent as numbers; the API rejects strings. ── */
+
+export type CreateVehicleBody = {
+  registrationNumber: string;
+  model: string;
+  type: string;
+  maxLoadCapacity: number;
+  odometer: number;
+  acquisitionCost: number;
+  status?: VehicleStatus;
+};
+
+export type CreateDriverBody = {
+  name: string;
+  licenseNumber: string;
+  licenseCategory: string;
+  /** YYYY-MM-DD */
+  licenseExpiryDate: string;
+  contactNumber: string;
+  safetyScore?: number;
+  status?: DriverStatus;
+};
+
+export type CreateTripBody = {
+  source: string;
+  destination: string;
+  vehicleId: number;
+  driverId: number;
+  cargoWeight: number;
+  plannedDistance: number;
+};
+
+export type CompleteTripBody = {
+  actualDistance: number;
+  fuelConsumed: number;
+  fuelCost?: number;
+  revenue: number;
+};
+
+export type LogFuelBody = {
+  vehicleId: number;
+  tripId?: number | null;
+  liters: number;
+  cost: number;
+  /** YYYY-MM-DD */
+  date: string;
+};
+
+export type LogExpenseBody = {
+  vehicleId: number;
+  tripId?: number | null;
+  description: string;
+  amount: number;
+  category: ExpenseCategory;
+  /** YYYY-MM-DD */
+  date: string;
+};
+
+/** GET /trips/dispatchable-assets — only vehicles/drivers eligible for a new trip. */
+export type DispatchableAssets = {
+  vehicles: Vehicle[];
+  drivers: Driver[];
+};
+
 export type Expense = {
   id: number;
   vehicleId: number;

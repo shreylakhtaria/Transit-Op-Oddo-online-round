@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
-  Calendar,
-  ChevronDown,
   Download,
   Fuel,
   Gauge,
   Landmark,
+  Loader2,
   ShieldCheck,
   User,
   UserCog,
@@ -22,6 +22,7 @@ import {
   useRoles,
   useTopCostliest,
 } from "@/lib/api/hooks";
+import { downloadCsv } from "@/lib/api/client";
 import type { Role, VehicleCostRow } from "@/lib/api/types";
 import { Button, Panel, PageHeader, Table, Td, Th, Tr } from "@/components/ui";
 import {
@@ -174,11 +175,31 @@ const costTone = (i: number) => COST_TONES[Math.min(i, COST_TONES.length - 1)];
 
 /* --------------------------------------------------------------------- Page */
 
-const RANGES = ["Last 7 Days", "Last 30 Days", "Last Quarter", "Year to Date"];
+/*
+ * The "Last 30 Days" range picker is gone. None of the analytics endpoints take a
+ * date range — `/analytics/dashboard`, `/analytics/monthly-revenue` and
+ * `/analytics/top-costliest` (whose only parameter is `limit`) all answer for all
+ * time. A picker reading "Last 30 Days" over all-time figures isn't an inert control,
+ * it's a false caption on the numbers next to it, so it is deleted rather than disabled.
+ */
 
 export default function AnalyticsPage() {
-  const [range, setRange] = useState("Last 30 Days");
-  const [open, setOpen] = useState(false);
+  // The export endpoint is bearer-authenticated — an <a href> would just 401, so the
+  // CSV is fetched with the token and handed to the browser as a blob.
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function onExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadCsv("/analytics/export/csv", "transitops-analytics.csv");
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const dashboard = useDashboard();
   const revenue = useMonthlyRevenue();
@@ -230,44 +251,26 @@ export default function AnalyticsPage() {
         title="Analytics & Fleet Intelligence"
         subtitle="Operational performance and asset ROI across the active transit network."
         action={
-          <div className="flex items-start gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-lg bg-surface-4 px-4 py-2 text-sm font-bold text-muted transition hover:bg-surface-4/80"
-              >
-                <Calendar className="size-4" strokeWidth={2} />
-                {range}
-                <ChevronDown className="size-3.5" strokeWidth={2.5} />
-              </button>
-              {open && (
-                <ul className="glass-elevated absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-lg border border-line py-1">
-                  {RANGES.map((r) => (
-                    <li key={r}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRange(r);
-                          setOpen(false);
-                        }}
-                        className={`w-full px-4 py-2 text-left text-sm transition hover:bg-accent/10 ${
-                          r === range ? "text-accent" : "text-muted"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          <div className="flex flex-col items-end gap-2">
             <Button
-              className="rounded-lg px-4 py-2 text-sm"
-              icon={<Download className="size-4" strokeWidth={2.5} />}
+              className="rounded-lg px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              icon={
+                exporting ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={2.5} />
+                ) : (
+                  <Download className="size-4" strokeWidth={2.5} />
+                )
+              }
+              onClick={onExport}
+              disabled={exporting}
             >
-              Export Report
+              {exporting ? "Exporting…" : "Export Report"}
             </Button>
+            {exportError && (
+              <p className="max-w-sm text-right text-xs text-danger">
+                {exportError}
+              </p>
+            )}
           </div>
         }
       />
@@ -399,17 +402,20 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          <button
-            type="button"
+          <Link
+            href="/fleet"
             className="flex items-center justify-center gap-2 pt-6 text-sm font-bold text-accent transition hover:opacity-80"
           >
             View Full Fleet Audit
             <ArrowRight className="size-3.5" strokeWidth={2.5} />
-          </button>
+          </Link>
         </Panel>
       </div>
 
-      {/* Settings & RBAC — real roles from GET /roles, with live user counts. */}
+      {/* Settings & RBAC — real roles from GET /roles, with live user counts.
+          "Add New Role" is deliberately absent: there is no role-creation endpoint, and
+          PATCH /users/:id/role only accepts the four seeded names. A button that could
+          never create a role is a promise the API cannot keep. */}
       <Panel className="overflow-hidden">
         <div className="glass-elevated flex items-center justify-between border-b border-line px-6 py-5">
           <div>
@@ -421,12 +427,6 @@ export default function AnalyticsPage() {
               hold each.
             </p>
           </div>
-          <button
-            type="button"
-            className="rounded-lg border border-accent/20 bg-accent-dim px-4 py-2 text-sm font-bold text-accent transition hover:bg-accent/20"
-          >
-            Add New Role
-          </button>
         </div>
 
         {roles.isLoading ? (

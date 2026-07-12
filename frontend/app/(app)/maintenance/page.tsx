@@ -6,9 +6,6 @@ import {
   Bus,
   CheckCircle2,
   ClipboardList,
-  Download,
-  MoreVertical,
-  SlidersHorizontal,
   Truck,
   Wrench,
 } from "lucide-react";
@@ -25,9 +22,15 @@ import {
   Th,
   Tr,
 } from "@/components/ui";
+import { Modal, ModalActions } from "@/components/ui/modal";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/async";
-import { useCreateMaintenance, useMaintenance, useVehicles } from "@/lib/api/hooks";
-import type { MaintenanceStatus } from "@/lib/api/types";
+import {
+  useCloseMaintenance,
+  useCreateMaintenance,
+  useMaintenance,
+  useVehicles,
+} from "@/lib/api/hooks";
+import type { MaintenanceLog, MaintenanceStatus } from "@/lib/api/types";
 
 const SERVICE_TYPES = [
   "Oil Change",
@@ -59,17 +62,6 @@ function LogPill({
     >
       {children}
     </span>
-  );
-}
-
-function IconButton({ children }: { children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      className="glow-hover flex size-8 items-center justify-center rounded border border-line bg-accent-faint text-muted transition hover:text-accent"
-    >
-      {children}
-    </button>
   );
 }
 
@@ -142,6 +134,10 @@ export default function MaintenancePage() {
   } = useMaintenance();
   const { data: vehicles } = useVehicles();
   const createLog = useCreateMaintenance();
+  const closeLog = useCloseMaintenance();
+
+  /** The record awaiting confirmation. Null when the confirm dialog is shut. */
+  const [closing, setClosing] = useState<MaintenanceLog | null>(null);
 
   const [vehicleId, setVehicleId] = useState("");
   const [description, setDescription] = useState(SERVICE_TYPES[0]);
@@ -184,6 +180,20 @@ export default function MaintenancePage() {
       { vehicleId: id, description, cost: amount, startDate },
       { onSuccess: () => setCost("") },
     );
+  }
+
+  /** Drop the failed attempt with the dialog, so reopening starts clean. */
+  function dismissClose() {
+    setClosing(null);
+    closeLog.reset();
+  }
+
+  function onConfirmClose(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!closing) return;
+    // POST /maintenance/:id/close — the hook also invalidates the vehicle list, because
+    // closing the record is what puts the vehicle back in the dispatch pool.
+    closeLog.mutate(closing.id, { onSuccess: () => setClosing(null) });
   }
 
   return (
@@ -315,18 +325,15 @@ export default function MaintenancePage() {
         {/* Right column — service log table + stat tile */}
         <div className="col-span-12 flex flex-col gap-4 lg:col-span-6">
           <Panel className="overflow-hidden">
+            {/* The filter and download icons that used to sit here are gone. Nothing
+                backs either: there is no filter param on GET /maintenance, and the only
+                export the API has is /analytics/export/csv — a fleet-wide cost sheet, not
+                this service log. A download icon on a "Service Log" panel that hands back
+                somebody else's table is worse than no icon at all. */}
             <div className="flex items-center justify-between border-b border-line px-6 py-5">
               <h2 className="text-xl font-semibold leading-7 text-ink">
                 Service Log
               </h2>
-              <div className="flex gap-2">
-                <IconButton>
-                  <SlidersHorizontal className="size-3.5" />
-                </IconButton>
-                <IconButton>
-                  <Download className="size-3.5" />
-                </IconButton>
-              </div>
             </div>
 
             {isLoading ? (
@@ -388,13 +395,18 @@ export default function MaintenancePage() {
                         <Td className="px-2">
                           <LogPill status={log.status}>{log.status}</LogPill>
                         </Td>
+                        {/* Only an Active record can be closed — a Closed one gets no
+                            action rather than a disabled control that never fires. */}
                         <Td className="px-2">
-                          <button
-                            type="button"
-                            className="text-muted transition hover:text-ink"
-                          >
-                            <MoreVertical className="size-4" />
-                          </button>
+                          {log.status === "Active" && (
+                            <button
+                              type="button"
+                              onClick={() => setClosing(log)}
+                              className="whitespace-nowrap rounded border border-accent/30 bg-accent-faint px-2 py-0.5 text-[10px] font-bold uppercase text-accent transition hover:border-accent/50 hover:bg-accent/20"
+                            >
+                              Close
+                            </button>
+                          )}
                         </Td>
                       </Tr>
                     );
@@ -414,6 +426,46 @@ export default function MaintenancePage() {
           </div>
         </div>
       </div>
+
+      {closing && (
+        <Modal
+          open
+          onClose={dismissClose}
+          title="Close service record"
+          subtitle="This ends the workshop visit and returns the vehicle to the dispatch pool."
+          icon={<CheckCircle2 className="size-5" />}
+        >
+          <form onSubmit={onConfirmClose}>
+            <dl className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="label-field">Vehicle</dt>
+                <dd className="font-mono text-sm text-ink">
+                  {closing.vehicle?.registrationNumber ??
+                    closing.vehicle?.model ??
+                    `#${closing.vehicleId}`}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="label-field">Service</dt>
+                <dd className="text-sm text-ink">{closing.description}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="label-field">Cost</dt>
+                <dd className="font-mono text-sm text-ink">
+                  {currency.format(closing.cost)}
+                </dd>
+              </div>
+            </dl>
+
+            <ModalActions
+              onCancel={dismissClose}
+              submitLabel="Close Record"
+              pending={closeLog.isPending}
+              error={closeLog.error}
+            />
+          </form>
+        </Modal>
+      )}
     </>
   );
 }

@@ -140,6 +140,27 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
+/**
+ * Downloads a CSV export. The endpoint is bearer-authenticated, so a plain <a href>
+ * would just get a 401 — fetch it with the token, then hand the browser a blob.
+ */
+export async function downloadCsv(path: string, filename: string) {
+  const token = tokenStore.access;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new ApiError(res.status, await readError(res));
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /** Step 1 of login — triggers the OTP. Returns a 5-minute tempToken. */
 export const login = (email: string, password: string) =>
   api.post<LoginResponse>("/auth/login", { email, password });

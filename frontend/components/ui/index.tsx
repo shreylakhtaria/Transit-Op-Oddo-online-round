@@ -264,19 +264,29 @@ export function TableFooter({
   summary,
   pages = 3,
   current = 1,
+  onPageChange,
 }: {
   summary: string;
   pages?: number;
   current?: number;
+  /** Omit to render the pager read-only (e.g. when everything fits on one page). */
+  onPageChange?: (page: number) => void;
 }) {
+  const go = (p: number) => {
+    if (onPageChange && p >= 1 && p <= pages && p !== current) onPageChange(p);
+  };
+  const interactive = Boolean(onPageChange) && pages > 1;
+
   return (
     <div className="glass-elevated flex items-center justify-between border-t border-line-soft px-6 py-3">
       <p className="label-field uppercase">{summary}</p>
       <div className="flex gap-2">
         <button
           type="button"
-          className="flex size-8 items-center justify-center rounded border border-line text-xs text-ink opacity-30"
-          disabled
+          aria-label="Previous page"
+          onClick={() => go(current - 1)}
+          disabled={!interactive || current <= 1}
+          className="flex size-8 items-center justify-center rounded border border-line text-xs text-ink transition hover:border-accent/30 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           ‹
         </button>
@@ -284,6 +294,8 @@ export function TableFooter({
           <button
             key={p}
             type="button"
+            aria-current={p === current ? "page" : undefined}
+            onClick={() => go(p)}
             className={`flex size-8 items-center justify-center rounded border text-xs font-bold transition ${
               p === current
                 ? "border-accent/40 bg-accent/20 text-accent shadow-[0_0_20px_rgba(125,211,252,0.15)]"
@@ -295,7 +307,10 @@ export function TableFooter({
         ))}
         <button
           type="button"
-          className="flex size-8 items-center justify-center rounded border border-line text-xs text-ink"
+          aria-label="Next page"
+          onClick={() => go(current + 1)}
+          disabled={!interactive || current >= pages}
+          className="flex size-8 items-center justify-center rounded border border-line text-xs text-ink transition hover:border-accent/30 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           ›
         </button>

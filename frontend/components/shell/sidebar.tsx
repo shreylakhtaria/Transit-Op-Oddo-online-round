@@ -43,13 +43,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <button
-        type="button"
+      {/* There is no "emergency dispatch" endpoint, so this goes to the closest real
+          capability — the Trip Dispatcher, where a trip can be raised and dispatched. */}
+      <Link
+        href="/trips"
         className="flex w-full items-center justify-center gap-2 rounded-lg border border-danger/35 bg-emergency px-4 py-3 text-base font-bold text-emergency-ink backdrop-blur-[16px] transition hover:bg-danger/25 hover:shadow-[0_0_24px_rgba(251,113,133,0.2)]"
       >
         <Siren className="size-4" />
         Emergency Dispatch
-      </button>
+      </Link>
     </aside>
   );
 }

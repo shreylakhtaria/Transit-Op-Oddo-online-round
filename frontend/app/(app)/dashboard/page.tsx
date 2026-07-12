@@ -1,10 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   Activity,
   CalendarClock,
-  ChevronDown,
   CircleAlert,
   CircleCheck,
   Info,
@@ -62,34 +62,6 @@ const initialsOf = (name: string) =>
     .join("") || "—";
 
 /* ------------------------------------------------------------- pieces ---- */
-
-function FilterChip({
-  label,
-  options,
-}: {
-  label: string;
-  options: string[];
-}) {
-  return (
-    <label className="glass glow-hover flex items-center gap-2 rounded-lg px-3 py-2 transition">
-      <span className="label-eyebrow whitespace-nowrap">{label}</span>
-      <span className="relative flex items-center">
-        <select
-          defaultValue={options[0]}
-          aria-label={label}
-          className="cursor-pointer appearance-none bg-transparent pr-5 text-sm font-bold text-ink outline-none"
-        >
-          {options.map((o) => (
-            <option key={o} value={o} className="bg-bg">
-              {o}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-0 size-3.5 text-muted" />
-      </span>
-    </label>
-  );
-}
 
 function StatTile({
   label,
@@ -304,24 +276,9 @@ export default function DashboardPage() {
 
   const utilization = Math.round(kpis?.fleetUtilization ?? 0);
 
-  const filters = (
-    <div className="flex flex-wrap items-center gap-3">
-      <FilterChip label="Vehicle Type" options={["All", "Van", "Truck", "Mini"]} />
-      <FilterChip
-        label="Status"
-        options={["All", "Available", "On Trip", "In Shop", "Retired"]}
-      />
-      <FilterChip
-        label="Region"
-        options={["All Regions", "North", "South", "East", "West"]}
-      />
-    </div>
-  );
-
   if (error) {
     return (
       <>
-        {filters}
         <ErrorState error={error} onRetry={() => void refetch()} />
       </>
     );
@@ -329,7 +286,6 @@ export default function DashboardPage() {
 
   return (
     <>
-      {filters}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
         {isLoading || !kpis ? (
@@ -405,12 +361,12 @@ export default function DashboardPage() {
               <List className="size-4 text-accent" />
               <h2 className="text-xl font-bold text-ink">Recent Trips</h2>
             </div>
-            <button
-              type="button"
+            <Link
+              href="/trips"
               className="text-sm font-bold text-accent transition hover:opacity-80"
             >
               View Full Log
-            </button>
+            </Link>
           </div>
 
           <Panel className="overflow-hidden">
