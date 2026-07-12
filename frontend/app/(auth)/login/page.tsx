@@ -69,14 +69,20 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // In demo mode the API echoes the code back so shared accounts work without an inbox.
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   async function handleCredentials(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
     setError(null);
     try {
-      const { tempToken } = await login(email, password);
-      setTempToken(tempToken);
+      const res = await login(email, password);
+      setTempToken(res.tempToken);
+      if (res.devCode) {
+        setDevCode(res.devCode);
+        setCode(res.devCode); // pre-fill so the demo user only clicks Verify
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
     } finally {
@@ -160,7 +166,9 @@ export default function LoginPage() {
               </h3>
               <p className="text-sm leading-5 text-muted">
                 {tempToken
-                  ? `We sent a 6-digit code to ${email}. Enter it to continue.`
+                  ? devCode
+                    ? "Demo access — your verification code is filled in below."
+                    : `We sent a 6-digit code to ${email}. Enter it to continue.`
                   : "Enter your operational credentials to continue."}
               </p>
             </div>
@@ -168,6 +176,18 @@ export default function LoginPage() {
             {error && (
               <div className="mb-6 rounded-lg border border-danger/30 bg-danger-dim px-4 py-3 text-sm text-danger">
                 {error}
+              </div>
+            )}
+
+            {tempToken && devCode && (
+              <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent-dim px-4 py-3">
+                <div className="flex items-center gap-2 text-accent">
+                  <KeyRound className="size-4 shrink-0" />
+                  <span className="text-sm font-semibold">Demo verification code</span>
+                </div>
+                <span className="font-mono text-lg font-bold tracking-[0.3em] text-accent">
+                  {devCode}
+                </span>
               </div>
             )}
 
@@ -209,6 +229,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setTempToken(null);
+                    setDevCode(null);
                     setCode("");
                     setError(null);
                   }}

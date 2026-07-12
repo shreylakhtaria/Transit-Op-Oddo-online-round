@@ -232,7 +232,13 @@ export type AuthUser = {
   role?: { name: string };
 };
 
-export type LoginResponse = { message: string; tempToken: string };
+export type LoginResponse = {
+  message: string;
+  tempToken: string;
+  /** Present only when the API runs in demo mode (EXPOSE_OTP) — the code, echoed
+   *  back so a shared account can be signed into without inbox access. */
+  devCode?: string;
+};
 export type VerifyOtpResponse = {
   accessToken: string;
   refreshToken: string;

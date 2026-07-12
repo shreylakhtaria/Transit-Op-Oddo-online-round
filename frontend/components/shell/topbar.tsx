@@ -1,6 +1,8 @@
 "use client";
 
-import { Search, Bell, CircleHelp, LogOut } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search, Bell, CircleHelp, LogOut, BellOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 function initials(name: string) {
@@ -12,33 +14,104 @@ function initials(name: string) {
     .join("");
 }
 
+const DEMO_LOGINS = [
+  { role: "Fleet Manager", email: "manager@transitops.com" },
+  { role: "Driver", email: "driver@transitops.com" },
+  { role: "Safety Officer", email: "safety@transitops.com" },
+  { role: "Financial Analyst", email: "finance@transitops.com" },
+];
+
 export function Topbar({
-  searchPlaceholder = "Global system search...",
+  searchPlaceholder = "Search vehicles, drivers, trips…",
 }: {
   searchPlaceholder?: string;
 }) {
   const { user, logout } = useAuth();
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  // There's no notifications or help API, so these are self-contained popovers.
+  const [open, setOpen] = useState<"bell" | "help" | null>(null);
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-line bg-surface px-8 backdrop-blur-[24px]">
-      <div className="glow-focus flex w-96 items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 backdrop-blur-[16px] transition">
+      {/* No global-search endpoint exists, so search routes to the Fleet registry —
+          the primary searchable list — rather than pretending to search everything. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          router.push("/fleet");
+        }}
+        className="glow-focus flex w-96 items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 backdrop-blur-[16px] transition"
+      >
         <Search className="size-[15px] shrink-0 text-muted" />
         <input
           type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder={searchPlaceholder}
           className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-placeholder"
         />
-      </div>
+      </form>
 
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-4 border-r border-line pr-6">
-          <button type="button" className="relative" aria-label="Notifications">
-            <Bell className="size-5 text-muted" />
+        <div className="relative flex items-center gap-4 border-r border-line pr-6">
+          <button
+            type="button"
+            className="relative"
+            aria-label="Notifications"
+            aria-expanded={open === "bell"}
+            onClick={() => setOpen((o) => (o === "bell" ? null : "bell"))}
+          >
+            <Bell className="size-5 text-muted transition hover:text-ink" />
             <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent" />
           </button>
-          <button type="button" aria-label="Help">
-            <CircleHelp className="size-5 text-muted" />
+          <button
+            type="button"
+            aria-label="Help"
+            aria-expanded={open === "help"}
+            onClick={() => setOpen((o) => (o === "help" ? null : "help"))}
+          >
+            <CircleHelp className="size-5 text-muted transition hover:text-ink" />
           </button>
+
+          {open && (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                tabIndex={-1}
+                className="fixed inset-0 z-10 cursor-default"
+                onClick={() => setOpen(null)}
+              />
+              <div className="glass absolute right-0 top-10 z-20 w-72 rounded-xl p-4">
+                {open === "bell" ? (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <BellOff className="size-6 text-muted" />
+                    <p className="text-sm font-semibold text-ink">
+                      You&apos;re all caught up
+                    </p>
+                    <p className="text-xs text-muted">No new notifications.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <p className="label-eyebrow">Demo logins · password123</p>
+                    <ul className="flex flex-col gap-2">
+                      {DEMO_LOGINS.map((l) => (
+                        <li key={l.email} className="flex flex-col">
+                          <span className="text-xs font-bold text-ink">
+                            {l.role}
+                          </span>
+                          <span className="font-mono text-[11px] text-muted">
+                            {l.email}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
